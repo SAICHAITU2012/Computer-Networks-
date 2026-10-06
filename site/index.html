@@ -8,7 +8,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/site.css?v=17">
+<link rel="stylesheet" href="assets/site.css?v=19">
 </head>
 <body>
 
@@ -21,6 +21,7 @@
       <div class="t1">NetMastery</div>
       <div class="t2">Computer Networks</div>
     </div>
+    <button class="theme-toggle" id="bgToggle" title="Toggle animated 3D backgrounds">✨</button>
     <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">🌙</button>
   </div>
   <div id="navList"></div>
@@ -38,13 +39,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="assets/bg3d.js?v=17"></script>
-<script src="assets/game.js?v=17"></script>
-<script src="assets/labs.js?v=17"></script>
-<script src="assets/arcade.js?v=17"></script>
-<script src="assets/assignment.js?v=17"></script>
-<script src="assets/assignview.js?v=17"></script>
-<script src="assets/app.js?v=17"></script>
+<script src="assets/bg3d.js?v=18"></script>
+<script src="assets/game.js?v=18"></script>
+<script src="assets/labs.js?v=18"></script>
+<script src="assets/arcade.js?v=18"></script>
+<script src="assets/assignment.js?v=18"></script>
+<script src="assets/assignview.js?v=18"></script>
+<script src="assets/app.js?v=20"></script>
 
 <script>
 // Theme toggle — persisted in localStorage
@@ -61,6 +62,17 @@
       btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
     }
     updateIcon();
+    const bgBtn = document.getElementById('bgToggle');
+    function updateBg() {
+      const on = localStorage.getItem('cn_bg3d') !== 'off';
+      bgBtn.textContent = on ? '✨' : '⬜';
+      bgBtn.title = on ? 'Hide animated 3D backgrounds (saves battery)' : 'Show animated 3D backgrounds';
+    }
+    bgBtn.addEventListener('click', function() {
+      if (window.BG3D) window.BG3D.toggle();
+      updateBg();
+    });
+    updateBg();
     btn.addEventListener('click', function() {
       const cur = document.documentElement.getAttribute('data-theme');
       const next = cur === 'dark' ? 'light' : 'dark';
