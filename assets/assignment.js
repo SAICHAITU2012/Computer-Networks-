@@ -866,7 +866,7 @@ vector<int> solve(int A, vector<vector<int>>& B, int C) {
     card.className = 'qq as-q';
     card.innerHTML = `
       <div class="qq-meta"><span class="qq-no">${esc(q.title)}</span>
-        <span class="qq-tag">${q.correct.length > 1 ? q.correct.length + ' correct' : q.correct.length + ' correct'}</span>
+        <span class="qq-tag">🔥 exam · ${q.correct.length} correct</span>
         ${solved ? '<span class="badge read">solved ✓</span>' : ''}</div>
       <div class="as-note small" style="color:var(--ink-3)">Select ALL that apply, then check.</div>
       <div class="as-opts">${q.stmts.map((s, i) => `

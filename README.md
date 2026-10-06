@@ -88,3 +88,18 @@ verified answer key and per-statement reasoning. Includes drills the lectures on
 touch lightly: the **MST cut property**, a **Prim's algorithm dry run** (total weight 14),
 **circuit vs packet switching**, **cross-subnet gateway routing**, the **/12 block math**
 (2²⁰ addresses), and a **Bellman-Ford iteration trace with a negative edge**.
+
+### v18–v20 — the learning-flow upgrade
+
+- **Quick check first**: lecture pages now open with just 3 questions (~2 min);
+  the full set folds away under "Show all N questions".
+- **Labs embedded at the concept**: lectures carry inline "▶ See it live" expanders
+  (3D OSI tower, subnet calculator, DNS climb, handshake, NAT table, DORA…).
+- **Predict-then-reveal cards**: predict before you read — generation effect as a game.
+- **Today's 5**: five fresh questions daily on the quest map (+8 XP each, streak feed).
+- **Weak-topic radar**: lowest quiz scores surface on the map with direct links.
+- **Search palette**: Ctrl/Cmd+K searches every section, lab, game and assignment.
+- **Count-to-Infinity lab**: distance-vector gossip with a split-horizon cure toggle.
+- **Progress export/import** (Achievements page) — JSON backup of XP, stars, badges.
+- **Background toggle** (✨ in the sidebar) + `prefers-reduced-motion` support.
+- **Friendly offline screen** if the local server isn't running.

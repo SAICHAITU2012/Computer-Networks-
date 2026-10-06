@@ -8,6 +8,7 @@
 
   let LECTURES = [];
   let meshStop = null;
+  let pendingScroll = null;
   const store = {
     get() { try { return JSON.parse(localStorage.getItem('cn_progress') || '{}'); } catch (e) { return {}; } },
     set(d) { localStorage.setItem('cn_progress', JSON.stringify(d)); },
@@ -132,6 +133,142 @@
     return s;
   }
 
+  /* ── inline lab embeds + predict-then-reveal ── */
+  /* ── Today's 5 (daily spaced practice) + weak-topic radar ── */
+  function daily5Pool() {
+    const pool = [];
+    LECTURES.filter(l => l.num > 0).forEach(lec => {
+      const amap = answerMap(lec);
+      lec.questions.forEach(q => {
+        if (!q.opts.length) return;
+        const ans = amap[+q.no] || '';
+        const letter = correctLetter(ans);
+        if (!letter) return;
+        pool.push({ id: 'L' + lec.num + 'q' + q.no, text: stripTags(q.text), opts: q.opts, letter, ans: stripTags(ans), src: 'Lecture ' + lec.num });
+      });
+    });
+    return pool;
+  }
+  function todayFive() {
+    let seed = 0;
+    for (const ch of new Date().toDateString()) seed = (seed * 31 + ch.charCodeAt(0)) % 2147483647;
+    const arr = daily5Pool();
+    for (let i = arr.length - 1; i > 0; i--) {
+      seed = (seed * 1103515245 + 12345) % 2147483647;
+      const j = seed % (i + 1);
+      [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr.slice(0, 5);
+  }
+  function d5State() {
+    const g = window.CN_GAME; if (!g) return null;
+    const today = new Date().toDateString();
+    const d = g.G();
+    if (!d.d5 || d.d5.date !== today) { d.d5 = { date: today, res: {} }; g.save(d); }
+    return d.d5;
+  }
+  function daily5Section() {
+    const g = window.CN_GAME; if (!g) return '';
+    const picks = todayFive();
+    const st = d5State();
+    const done = picks.filter(p => st.res[p.id] !== undefined).length;
+    const right = picks.filter(p => st.res[p.id] === true).length;
+    return `<div class="home-sec" id="daily5Sec">
+      <h2>⚡ Today's 5 <span class="lab-status" style="vertical-align:middle">${done}/5 answered${done === 5 ? ` · ${right} correct ${right >= 4 ? '🌟' : ''}` : ''}</span></h2>
+      <div class="sub">Five questions, chosen fresh today from across the whole course. ~3 minutes.</div>
+      <div id="d5Body">${picks.map((p, i) => `
+        <div class="qq d5q ${st.res[p.id] !== undefined ? 'answered' : ''}" data-id="${p.id}">
+          <div class="qq-meta"><span class="qq-no">${i + 1} / 5</span><span class="qq-tag">${p.src}</span></div>
+          <div class="qq-text">${esc(p.text)}</div>
+          <div class="qq-opts">${p.opts.map((o, j) => {
+            const ol = String.fromCharCode(97 + j);
+            return `<div class="opt" data-l="${ol}" role="button"><span class="ol">${ol}</span><span>${esc(o)}</span></div>`;
+          }).join('')}</div>
+          <div class="qq-fb"></div>
+        </div>`).join('')}</div>
+    </div>`;
+  }
+  function bindDaily5() {
+    const g = window.CN_GAME; if (!g) return;
+    const st = d5State();
+    const picks = todayFive();
+    $$('#d5Body .d5q').forEach((el, i) => {
+      const p = picks[i];
+      if (st.res[p.id] !== undefined) { el.classList.add('answered'); el.querySelectorAll('.opt').forEach(o => o.style.pointerEvents = 'none'); return; }
+      el.querySelectorAll('.opt').forEach(opt => {
+        opt.onclick = (ev) => {
+          if (el._done) return;
+          el._done = true;
+          const chosen = opt.getAttribute('data-l');
+          el.querySelectorAll('.opt').forEach(o => { if (o.getAttribute('data-l') === p.letter) o.classList.add('right'); });
+          const fb = el.querySelector('.qq-fb');
+          const ok = chosen === p.letter;
+          if (ok) { fb.className = 'qq-fb show good'; fb.textContent = '✓ Correct — ' + p.ans; }
+          else { opt.classList.add('wrong'); fb.className = 'qq-fb show bad'; fb.textContent = '✗ Answer: ' + p.letter.toUpperCase() + ' — ' + p.ans; }
+          el.classList.add('answered');
+          el.querySelectorAll('.opt').forEach(o => o.style.pointerEvents = 'none');
+          st.res[p.id] = ok;
+          g.save(Object.assign(g.G(), { d5: st }));
+          if (ok) { g.addXP(8, "Today's 5"); g.bumpDaily('correct'); g.floatXP(ev.clientX, ev.clientY - 30, '+8 XP'); }
+          const done = picks.filter(pp => st.res[pp.id] !== undefined).length;
+          const right = picks.filter(pp => st.res[pp.id] === true).length;
+          const badge = document.querySelector('#daily5Sec .lab-status');
+          if (badge) badge.textContent = `${done}/5 answered${done === 5 ? ` · ${right} correct ${right >= 4 ? '🌟' : ''}` : ''}`;
+          if (done === 5) {
+            g.SFX.win();
+            if (right >= 4) g.confetti(innerWidth / 2, innerHeight / 3, 80, ['⚡', '⭐', '🎉']);
+            const note = document.createElement('p');
+            note.className = 'sub';
+            note.innerHTML = right >= 4 ? `<b>${right}/5 today</b> — brilliant. Come back tomorrow for five fresh ones!` : `<b>${right}/5 today</b> — tomorrow's five are a fresh draw. Streaks matter more than perfection.`;
+            document.getElementById('d5Body').appendChild(note);
+          }
+        };
+      });
+    });
+  }
+  function weakSection() {
+    const scored = LECTURES.filter(l => l.num > 0 && getBest(l.num) > 0 && getBest(l.num) < 100)
+      .sort((a, b) => getBest(a.num) - getBest(b.num)).slice(0, 3);
+    if (!scored.length) return '';
+    return `<div class="home-sec"><h2>🎯 Sharpen your weakest</h2>
+      <div class="sub">Lowest quiz scores so far — a few minutes here pays off the most.</div>
+      <div class="lec-grid">${scored.map(l => `<a class="lec-card" style="--lc:${l.acc.d}" href="#/quiz/${l.num}">
+        <span class="lc-no">${String(l.num).padStart(2, '0')}</span>
+        <div class="lc-title">${stripTags(l.title)}</div>
+        <div class="lc-badges"><span class="badge quiz">Best ${getBest(l.num)}%</span><span class="badge">→ quiz</span></div>
+      </a>`).join('')}</div></div>`;
+  }
+
+  const LAB_EMBEDS = [
+    { lec: 1, rx: /delay|propagation|throughput/i, lab: 'lab-delay', label: 'Delay Lab — push bits down a real link' },
+    { lec: 2, rx: /encapsulat|osi|layer/i, lab: 'lab-osi3d', label: 'The OSI tower in 3D — spin it, then encapsulate' },
+    { lec: 3, rx: /subnet mask|network address|binary|and operation/i, lab: 'lab-subnet', label: 'Subnet calculator — watch the 32 bits split live' },
+    { lec: 5, rx: /dijkstra/i, lab: 'lab-routing', label: 'Step through Dijkstra on a real graph' },
+    { lec: 8, rx: /count-to-infinity|distance vector|convergence/i, lab: 'lab-gossip', label: 'Watch routers gossip — count-to-infinity, live' },
+    { lec: 9, rx: /dns|resolution|hierarch/i, lab: 'lab-dns', label: 'Climb the DNS hierarchy live' },
+    { lec: 10, rx: /handshake|three-way/i, lab: 'lab-tcp', label: 'Play the three-way handshake' },
+    { lec: 11, rx: /nat\b|translation/i, lab: 'lab-nat', label: 'Rewrite packets through the NAT table' },
+    { lec: 11, rx: /dhcp|dora/i, lab: 'lab-dhcp', label: 'Run the DORA dance' },
+    { lec: 13, rx: /journey|press enter|complete/i, lab: 'lab-journey', label: 'The complete packet journey, narrated' },
+  ];
+  const PREDICTS = [
+    { lec: 7, rx: /ttl|time to live/i, q: "A packet's TTL hits 0 at hop 4. What does the router do?", opts: ["Forwards it anyway with TTL = 0", "Drops it and sends an ICMP Time Exceeded message back to the source", "Sends it back to the sender for a retry"], a: 1, why: "TTL = 0 → drop + ICMP Time Exceeded. Traceroute exploits exactly this by sending TTL = 1, 2, 3…" },
+    { lec: 2, rx: /encapsulat/i, q: "As data travels down the stack, what does each layer do to the layer above's data?", opts: ["Reads and rewrites its headers", "Wraps it in its own header, treating it as opaque payload", "Strips the previous layer's header"], a: 1, why: "The opaque-payload principle: each layer only adds its own header — that's why TCP runs unchanged over any link layer." },
+    { lec: 11, rx: /how nat works|nat translation|what gets rewritten/i, q: "Your laptop has already used public ports 40001–40004. It opens a 5th connection. What source port does NAT pick?", opts: ["40001 again — it's free now", "A fresh unused port, e.g. 40005", "Port 443, to match the website"], a: 1, why: "Each connection gets a unique public port — the port is the discriminator that lets one public IP serve everyone." },
+    { lec: 11, rx: /dora/i, q: "Why does the DHCP REQUEST stay broadcast, even after the server was found?", opts: ["The client doesn't know the server's MAC yet", "So the OTHER DHCP servers hear it and withdraw their offers", "Broadcasts are faster than unicasts"], a: 1, why: "Broadcast on purpose: the losing servers hear 'I chose someone else' and cleanly withdraw their offers." },
+    { lec: 5, rx: /dijkstra('s)? algorithm/i, q: "Dijkstra finalizes node X at cost 6. Later, a path of cost 4 to X is discovered. What happens?", opts: ["X's distance updates to 4", "X stays at 6 — Dijkstra never revises a finalized node", "Dijkstra restarts from scratch"], a: 1, why: "The greedy freeze — always true, and exactly why negative edges break Dijkstra (Lecture 6)." },
+    { lec: 9, rx: /resolution|hierarchy|dns/i, q: "The recursive resolver already holds the answer, and the TTL is still valid. What happens on a new lookup?", opts: ["It still queries root → TLD → authoritative", "It answers from cache instantly — no hierarchy climb", "It asks the browser first"], a: 1, why: "Cache hit → instant answer. That's why the second visit to a site feels instant." },
+  ];
+  function embedWidget(e) {
+    return `<details class="lab-embed"><summary>▶ See it live — ${esc(e.label)}</summary><div class="lab-embed-body" data-lab="${e.lab}"></div></details>`;
+  }
+  function predictWidget(p) {
+    return `<div class="predict-card" data-a="${p.a}"><div class="pc-tag">🎯 Predict before you read on</div>
+      <div class="pc-q">${esc(p.q)}</div>
+      <div class="pc-opts">${p.opts.map((o, i) => `<button data-i="${i}">${esc(o)}</button>`).join('')}</div>
+      <div class="pc-why" style="display:none"></div></div>`;
+  }
+
   function questMapView() {
     const g = window.CN_GAME;
     const li = g ? g.levelInfo(g.G().xp) : { lvl: 1, title: 'Curious Newbie', into: 0, need: 100 };
@@ -230,6 +367,8 @@
       <div class="map-wrap">
         ${zoneHtml}
       </div>
+      ${g ? daily5Section() : ''}
+      ${weakSection()}
       <div class="home-sec" style="margin-top:44px">
         <h2>🕹️ Game Arcade</h2>
         <div class="sub">Six mini-games that drill real exam skills — binary, routing, headers, memory, DNS &amp; packet forwarding.</div>
@@ -249,6 +388,7 @@
         meshStop = g.startMesh(c);
       }
       g.countUp(document.getElementById('mhXpNum'), g.G().xp, 900);
+      bindDaily5();
     }
   }
 
@@ -315,8 +455,40 @@
           </div>` : ''}
         </div>
       </div>
-      <div class="ach-grid">${cards}</div>${foot()}`;
+      <div class="ach-grid">${cards}</div>
+      <div class="ach-actions">
+        <button class="btn ghost small" id="expProg">⬇ Export progress</button>
+        <button class="btn ghost small" id="impProg">⬆ Import progress</button>
+        <input type="file" id="impFile" accept="application/json" style="display:none">
+        <span class="small" style="color:var(--ink-3)">Your XP, streaks, stars and badges — backed up as a file.</span>
+      </div>${foot()}`;
     staggerCards(view());
+    const exp = $('#expProg');
+    if (exp) exp.onclick = () => {
+      const data = {};
+      ['cn_game', 'cn_progress', 'cn_assign', 'cn_theme'].forEach(k => { const v = localStorage.getItem(k); if (v) data[k] = v; });
+      const blob = new Blob([JSON.stringify(data, null, 1)], { type: 'application/json' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = 'cn-progress-' + new Date().toISOString().slice(0, 10) + '.json';
+      a.click();
+      toast('Progress exported — keep the file safe!');
+    };
+    const imp = $('#impProg'), file = $('#impFile');
+    if (imp) imp.onclick = () => file.click();
+    if (file) file.onchange = () => {
+      const f = file.files[0]; if (!f) return;
+      const rd = new FileReader();
+      rd.onload = () => {
+        try {
+          const data = JSON.parse(rd.result);
+          Object.entries(data).forEach(([k, v]) => localStorage.setItem(k, typeof v === 'string' ? v : JSON.stringify(v)));
+          toast('Progress imported! 🎉');
+          setTimeout(() => location.reload(), 900);
+        } catch (e) { toast('Import failed — not a valid progress file.'); }
+      };
+      rd.readAsText(f);
+    };
   }
 
   function foot() {
@@ -338,11 +510,20 @@
       <div class="obj-band"><div class="ob-title">Learning objectives — after this lecture you can</div>
       <ul>${lec.objectives.map(o => `<li>${o}</li>`).join('')}</ul></div>` : '';
 
-    const secs = lec.sections.map(s => `<div class="sec"><div class="sec-head"><div class="num">${esc(s.num)}</div><h2>${esc(s.title)}</h2><div class="rule"></div></div>${s.html}</div>`).join('');
+    PREDICTS.forEach(p => p._used = false);
+    const usedEmbeds = new Set();
+    const secs = lec.sections.map(s => {
+      let extra = '';
+      const embed = LAB_EMBEDS.find(e => e.lec === num && !usedEmbeds.has(e.lab) && e.rx.test(s.title));
+      if (embed) { usedEmbeds.add(embed.lab); extra += embedWidget(embed); }
+      const pred = PREDICTS.find(p => p.lec === num && !p._used && p.rx.test(s.title));
+      if (pred) { pred._used = true; extra += predictWidget(pred); }
+      return `<div class="sec"><div class="sec-head"><div class="num">${esc(s.num)}</div><h2>${esc(s.title)}</h2><div class="rule"></div></div>${s.html}${extra}</div>`;
+    }).join('');
     const cheat = lec.cheatHtml || '';
 
     // inline "test yourself" — interactive MCQs, reveal answers for the rest
-    const qsHtml = lec.questions.map(q => {
+    const rendered = lec.questions.map(q => {
       const ans = amap[+q.no] || '';
       const letter = correctLetter(ans);
       const tag = esc(q.tag || 'Question');
@@ -362,7 +543,11 @@
         <div class="qq-text">${esc(q.text)}</div>
         <button class="btn ghost small reveal-btn">Show a model answer</button>
         <div class="qq-answer">${ans ? esc(ans) : 'Use the section above — a labelled diagram plus 3–4 crisp points earns the marks.'}</div></div>`;
-    }).join('');
+    });
+    const mcqH = rendered.filter(h => h.includes('data-kind="mcq"'));
+    const restH = rendered.filter(h => !h.includes('data-kind="mcq"'));
+    const quick = mcqH.slice(0, 3).join('');
+    const rest = mcqH.slice(3).concat(restH).join('');
 
     const best = getBest(num);
     const starsN = stars(lec);
@@ -392,8 +577,11 @@
         ${secs}
         ${cheat}
         <div class="sec"><div class="sec-head"><div class="num">✎</div><h2>Test yourself</h2><div class="rule"></div></div>
-          <p class="small">MCQs grade instantly — earn +8 XP each. Build combos for bonus XP! Prefer a full scored run? Open the <a href="#/quiz/${num}">quiz view</a>.</p>
-          ${qsHtml}
+          <div class="qc-head"><span class="lab-status">⚡ Quick check — ${Math.min(3, mcqH.length)} questions · ~2 min</span><span class="small">Start here — small wins first.</span></div>
+          ${quick}
+          ${rest ? `<div class="qc-actions"><button class="btn ghost small" id="qcMore">📚 Show all ${lec.questions.length} questions</button></div>
+          <div id="qcRest" style="display:none">${rest}</div>` : ''}
+          <p class="small" style="margin-top:10px">Prefer a full scored run? Open the <a href="#/quiz/${num}">quiz view</a>.</p>
         </div>
       </div>
       <div class="lec-nav">
@@ -404,6 +592,53 @@
       </div>
       ${foot()}`;
 
+    const qcMore = $('#qcMore');
+    if (qcMore) qcMore.onclick = () => {
+      const r = $('#qcRest');
+      const open = r.style.display !== 'none';
+      r.style.display = open ? 'none' : 'block';
+      qcMore.textContent = open ? `📚 Show all ${lec.questions.length} questions` : '⬆ Hide the deeper practice';
+    };
+    $$('.lab-embed', view()).forEach(d => {
+      d.addEventListener('toggle', () => {
+        const body = d.querySelector('.lab-embed-body');
+        if (d.open && !body._mounted) {
+          const lab = (window.CN_LABS || []).find(l => l.id === body.getAttribute('data-lab'));
+          if (lab) { try { lab.mount(body); body._mounted = true; } catch (e) { body.textContent = 'Lab failed to load: ' + e.message; } }
+        }
+      });
+    });
+    $$('.predict-card', view()).forEach(pc => {
+      const why = pc.querySelector('.pc-why');
+      pc.querySelectorAll('.pc-opts button').forEach(b => {
+        b.onclick = (ev) => {
+          pc.querySelectorAll('.pc-opts button').forEach(x => x.disabled = true);
+          const ok = +b.getAttribute('data-i') === pc._a;
+          b.classList.add(ok ? 'right' : 'wrong');
+          why.style.display = 'block';
+          const g = window.CN_GAME;
+          const cx = ev.clientX, cy = ev.clientY;
+          if (ok) {
+            why.innerHTML = '✅ ' + esc(pc._why);
+            why.className = 'pc-why good';
+            if (g) { g.SFX.correct(); g.floatXP(cx, cy - 30, '+4 XP'); g.bumpDaily('correct'); }
+          } else {
+            why.innerHTML = '❌ Not quite. ' + esc(pc._why);
+            why.className = 'pc-why bad';
+            if (g) { g.SFX.wrong(); g.floatXP(cx, cy - 30, '🤔', 'miss'); }
+          }
+        };
+      });
+      pc._a = +pc.getAttribute('data-a');
+      const def = PREDICTS.find(p => p.q === pc.querySelector('.pc-q').textContent);
+      pc._why = def ? def.why : '';
+    });
+    if (pendingScroll && pendingScroll.lec === num) {
+      const secEls = $$('.lroot .sec');
+      const t = secEls[pendingScroll.sec];
+      if (t) setTimeout(() => t.scrollIntoView({ behavior: 'smooth', block: 'start' }), 200);
+      pendingScroll = null;
+    }
     const mr = $('#markRead');
     if (mr) mr.onclick = () => { markRead(num); mr.remove(); $('#readState').textContent = '✓ Marked as read'; toast('Marked as read — nice work!'); };
 
@@ -700,6 +935,73 @@
     });
   }
 
+  /* ---------------- SEARCH PALETTE (Ctrl/Cmd+K) ---------------- */
+  let searchIndex = null;
+  function buildSearchIndex() {
+    searchIndex = [];
+    LECTURES.forEach(l => l.sections.forEach((sec, i) => {
+      searchIndex.push({
+        type: '📖 ' + (l.num === 0 ? 'Master' : 'Lecture ' + l.num),
+        title: sec.num + '. ' + sec.title,
+        sub: stripTags(sec.html).replace(/\s+/g, ' ').slice(0, 120),
+        go() {
+          if (location.hash === '#/lecture/' + l.num) { pendingScroll = { lec: l.num, sec: i }; route(); }
+          else { pendingScroll = { lec: l.num, sec: i }; location.hash = '#/lecture/' + l.num; }
+        },
+      });
+    }));
+    (window.CN_LABS || []).forEach(l => searchIndex.push({
+      type: '⚡ Lab', title: l.title,
+      sub: (l.desc || '').replace(/<[^>]*>/g, '').slice(0, 120),
+      go() { location.hash = '#/labs'; setTimeout(() => { const t = document.getElementById(l.id); if (t) t.scrollIntoView({ behavior: 'smooth' }); }, 250); },
+    }));
+    (window.CN_ASSIGNMENTS || []).forEach(a => searchIndex.push({
+      type: '📝 Assignment', title: a.title,
+      sub: a.mcqs.length + ' exam MCQs' + (a.coding ? ' + ' + a.coding.length + ' coding problems' : ''),
+      go() { location.hash = '#/assignment/' + a.id; },
+    }));
+    (window.CN_GAMES || []).forEach(gm => searchIndex.push({
+      type: '🕹️ Game', title: gm.title,
+      sub: (gm.desc || '').replace(/<[^>]*>/g, '').slice(0, 120),
+      go() { location.hash = '#/arcade'; setTimeout(() => { const t = document.getElementById(gm.id); if (t) t.scrollIntoView({ behavior: 'smooth' }); }, 250); },
+    }));
+  }
+  function openSearch() {
+    if ($('#searchOverlay')) return;
+    if (!searchIndex) buildSearchIndex();
+    const ov = document.createElement('div');
+    ov.id = 'searchOverlay';
+    ov.innerHTML = `<div class="search-panel">
+      <input id="searchInput" placeholder="Search concepts, labs, games, assignments…" autocomplete="off">
+      <div id="searchResults"></div>
+      <div class="search-hint">↑ click a result · esc closes · ${searchIndex.length} things indexed</div>
+    </div>`;
+    document.body.appendChild(ov);
+    const input = $('#searchInput', ov), res = $('#searchResults', ov);
+    const render = q => {
+      const ql = q.trim().toLowerCase();
+      const hits = !ql ? searchIndex.slice(0, 8) : searchIndex.map(e => {
+        const t = e.title.toLowerCase(), sub = e.sub.toLowerCase();
+        const ti = t.indexOf(ql), si = sub.indexOf(ql);
+        return { e, score: ti === 0 ? 0 : ti > 0 ? 1 : si >= 0 ? 2 : 99 };
+      }).filter(x => x.score < 99).sort((a, b) => a.score - b.score).slice(0, 12).map(x => x.e);
+      res.innerHTML = hits.length
+        ? hits.map(e => `<div class="search-hit" data-i="${searchIndex.indexOf(e)}"><span class="sh-type">${esc(e.type)}</span><span class="sh-body"><span class="sh-title">${esc(e.title)}</span><span class="sh-sub">${esc(e.sub)}</span></span></div>`).join('')
+        : '<div class="search-hint" style="padding:14px">No matches — try "subnet", "DNS", "handshake"…</div>';
+      $$('.search-hit', res).forEach(h => h.onclick = () => { ov.remove(); searchIndex[+h.getAttribute('data-i')].go(); });
+    };
+    input.oninput = () => render(input.value);
+    input.onkeydown = e => { if (e.key === 'Enter') { const first = $('.search-hit', res); if (first) first.click(); } };
+    ov.onclick = e => { if (e.target === ov) ov.remove(); };
+    const escH = e => { if (e.key === 'Escape') { ov.remove(); document.removeEventListener('keydown', escH); } };
+    document.addEventListener('keydown', escH);
+    render('');
+    setTimeout(() => input.focus(), 60);
+  }
+  document.addEventListener('keydown', e => {
+    if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); openSearch(); }
+  });
+
   /* ---------------- ROUTER ---------------- */
   function route() {
     const h = location.hash || '#/';
@@ -741,12 +1043,25 @@
   }
 
   async function boot() {
-    const res = await fetch('data/lectures.json?v=17');
-    LECTURES = await res.json();
+    try {
+      const res = await fetch('data/lectures.json?v=18');
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      LECTURES = await res.json();
+    } catch (e) {
+      $('#view').innerHTML = `<div class="card acc lroot" style="max-width:660px;margin:60px auto">
+        <div class="c-title">📡 The site can't reach its files</div>
+        <p>This site runs from a tiny local server. Start it in a Terminal:</p>
+        <div class="code">cd ~/Desktop/ComputerNetworks/site
+python3 -m http.server 8765</div>
+        <p class="small">Then refresh this page. Don't worry — your XP, streaks and badges are saved and safe.</p>
+      </div>`;
+      return;
+    }
     LECTURES.sort((a, b) => (a.num === 0 ? 99 : a.num) - (b.num === 0 ? 99 : b.num));
     buildNav();
     window.addEventListener('hashchange', route);
     $('#navToggle').onclick = () => $('#sidebar').classList.toggle('open');
+    buildSearchIndex();
     if (window.CN_GAME) window.CN_GAME.onXP(() => {
       const pct = overallPct();
       $('#navPct').textContent = pct + '%';

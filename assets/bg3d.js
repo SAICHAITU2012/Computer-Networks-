@@ -576,7 +576,19 @@
     13: () => startFlowLines(280),               // Internet Journey — purple flows
   };
 
-  /* ── PUBLIC API ── */
+  /* ── PUBLIC API (guarded by user preference + reduced-motion) ── */
+  function bgEnabled() {
+    return localStorage.getItem('cn_bg3d') !== 'off' &&
+      !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+  }
+  let _lastStyle = null;
+  function guarded(fn) {
+    return function (...args) {
+      _lastStyle = () => fn(...args);
+      if (!bgEnabled()) { stop(); return; }
+      return fn(...args);
+    };
+  }
   window.BG3D = {
     stop,
     home: startNeural,
@@ -590,5 +602,13 @@
       const fn = LECTURE_STYLES[num];
       if (fn) fn(); else startHexGrid(220);
     },
+  };
+  ['home', 'arcade', 'labs', 'achievements', 'assignments', 'cheats', 'quiz', 'lecture']
+    .forEach(k => { window.BG3D[k] = guarded(window.BG3D[k]); });
+  window.BG3D.toggle = function () {
+    const cur = localStorage.getItem('cn_bg3d') !== 'off';
+    localStorage.setItem('cn_bg3d', cur ? 'off' : 'on');
+    if (cur) stop(); else if (_lastStyle) _lastStyle();
+    return !cur;
   };
 })();

@@ -1013,5 +1013,151 @@
     teardown() {},
   });
 
+  /* ================================================================
+     11. COUNT-TO-INFINITY — distance-vector gossip
+  ================================================================ */
+  LABS.push({
+    id: 'lab-gossip', icon: '🌪️', title: 'Count-to-Infinity — routing gossip',
+    desc: 'Three routers share one destination network. Kill the link and watch distance-vector gossip: without split horizon the cost climbs all the way to 16 (RIP\'s "infinity") — with split horizon, the network heals in one round.',
+    mount(shell) {
+      const alive = { v: true }; this._teardown = () => { alive.v = false; };
+      controlsHTML(shell, `
+        <button class="btn primary small" id="gFail">💥 Kill the link to NET</button>
+        <button class="btn ghost small" id="gSplit">Split horizon: OFF</button>
+        <button class="btn ghost small" id="gReset">⟲ Reset</button>
+        <span class="lab-status" id="gRound">round 0 — healthy</span>`);
+      const wrap = el('div'); shell.appendChild(wrap);
+      const svg = svgEl('svg', { viewBox: '0 0 760 300', class: 'lab-canvas' });
+      wrap.appendChild(svg);
+      const pos = { A: [140, 160], B: [400, 90], C: [400, 230], N: [140, 55] };
+      const logs = el('div', 'lab-log'); logs.id = 'gLog';
+      shell.appendChild(logs);
+
+      function draw(failed, bT, cT, adverts, verdict) {
+        svg.innerHTML = '';
+        // links
+        const lk = (x1, y1, x2, y2, col, dash) => svgEl('line', { x1, y1, x2, y2, stroke: col, 'stroke-width': 3, 'stroke-dasharray': dash ? '6 5' : 'none' }, svg);
+        lk(pos.A[0], pos.A[1], pos.B[0], pos.B[1], '#d9d5f0');
+        lk(pos.B[0], pos.B[1], pos.C[0], pos.C[1], '#d9d5f0');
+        lk(pos.C[0], pos.C[1], pos.A[0], pos.A[1], '#d9d5f0');
+        const an = lk(pos.A[0], pos.A[1] - 30, pos.N[0], pos.N[1] + 22, failed ? '#e0a29c' : '#a2ce9d', failed);
+        if (failed) { const t = svgEl('text', { x: pos.A[0] + 14, y: (pos.A[1] + pos.N[1]) / 2, 'font-size': 13, 'font-weight': 900, fill: '#be123c', class: 'svg-t' }, svg); t.textContent = '✂ dead'; }
+        // routers
+        const rn = (x, y, name, col) => {
+          svgEl('rect', { x: x - 46, y: y - 26, width: 92, height: 52, rx: 11, fill: col, stroke: '#c9c3b6', 'stroke-width': 1.5 }, svg);
+          const t = svgEl('text', { x, y: y + 5, 'text-anchor': 'middle', 'font-size': 15, 'font-weight': 900, fill: '#fff', class: 'svg-t' }, svg);
+          t.textContent = name;
+        };
+        rn(pos.A[0], pos.A[1], 'A', '#4f46e5');
+        rn(pos.B[0], pos.B[1], 'B', '#0e7a55');
+        rn(pos.C[0], pos.C[1], 'C', '#0e7a55');
+        // network cloud
+        svgEl('rect', { x: pos.N[0] - 62, y: pos.N[1] - 24, width: 124, height: 44, rx: 20, fill: failed ? '#fbeceb' : '#edf6ec', stroke: failed ? '#e0a29c' : '#a2ce9d', 'stroke-width': 1.5 }, svg);
+        const nt = svgEl('text', { x: pos.N[0], y: pos.N[1] + 4, 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 800, fill: failed ? '#8a3b34' : '#3c6b39', class: 'svg-t' }, svg);
+        nt.textContent = failed ? 'NET — DOWN' : 'NET (E)';
+        // routing tables
+        const table = (x, y, name, t) => {
+          const g = svgEl('g', {}, svg);
+          const bg = svgEl('rect', { x: x - 10, y: y - 16, width: 190, height: 30, rx: 7, fill: '#fffdf8', stroke: '#d9d5f0' }, g);
+          const tx = svgEl('text', { x: x, y: y + 4, 'font-size': 11.5, 'font-weight': 800, fill: t.cost >= 16 ? '#be123c' : '#2c3b46', class: 'svg-t' }, g);
+          tx.textContent = t.cost >= 16 ? name + ': E = ∞ (flushed)' : `${name}: E via ${t.via} = ${t.cost}`;
+          return g;
+        };
+        table(pos.B[0] + 120, pos.B[1], 'B', bT);
+        table(pos.C[0] + 120, pos.C[1], 'C', cT);
+        // adverts this round
+        (adverts || []).forEach(a => {
+          const [from, to, cost] = a;
+          const mx = (pos[from][0] + pos[to][0]) / 2, my = (pos[from][1] + pos[to][1]) / 2;
+          const t = svgEl('text', { x: mx - 20, y: my - 6, 'font-size': 11, 'font-weight': 900, fill: cost >= 16 ? '#be123c' : '#b45309', class: 'svg-t' }, svg);
+          t.textContent = cost >= 16 ? 'E=∞' : 'E=' + cost;
+        });
+        if (verdict) {
+          const t = svgEl('text', { x: 380, y: 288, 'text-anchor': 'middle', 'font-size': 13.5, 'font-weight': 900, fill: verdict.ok ? '#16a34a' : '#be123c', class: 'svg-t' }, svg);
+          t.textContent = verdict.msg;
+        }
+      }
+
+      function build(splitOn) {
+        let B = { via: 'A', cost: 2 }, C = { via: 'B', cost: 3 };
+        let failed = false, round = 0, done = false;
+        const steps = [];
+        steps.push({ d: 'Healthy start: B reaches E via A (cost 2), C reaches E via B (cost 3). Every 30s each router gossips its whole table.', paint: () => draw(false, B, C, []) });
+        const failStep = { d: '💥 The link from A to NET dies! A immediately advertises E = ∞ (16) to B.', paint: () => draw(true, B, C, [['A', 'B', 16]]) };
+        if (!splitOn) {
+          steps.push(failStep);
+          // gossip rounds — the climb
+          for (let r = 1; r <= 14; r++) {
+            const oldB = { ...B }, oldC = { ...C };
+            // simultaneous exchange: B hears A(16) + C; C hears B
+            const candB = [16, C.cost < 16 ? C.cost + 1 : 16];
+            const candC = [B.cost < 16 ? B.cost + 1 : 16];
+            B = { via: candB[1] <= candB[0] ? 'C' : 'A', cost: Math.min(...candB) };
+            C = { via: 'B', cost: Math.min(...candC) };
+            round = r;
+            const adverts = [['A', 'B', 16], ['C', 'B', oldC.cost], ['B', 'C', oldB.cost]];
+            const bStr = B.cost >= 16 ? '∞' : B.cost, cStr = C.cost >= 16 ? '∞' : C.cost;
+            if (B.cost < 16 || C.cost < 16) {
+              steps.push({ d: `Round ${r}: B hears C's stale advert → B: E = ${bStr} via C. C hears B → C: E = ${cStr} via B. They keep feeding each other the rumour…`, paint: () => draw(true, B, C, adverts) });
+            }
+            if (B.cost >= 16 && C.cost >= 16) {
+              steps.push({ d: `Round ${r}: both hit 16 — RIP's "infinity". They finally flush the route. That took ${r} rounds of gossip. THIS is count-to-infinity.`, paint: () => draw(true, B, C, [], { ok: false, msg: '💀 converged at ∞ after ' + r + ' rounds — the rumour died of exhaustion' }) });
+              done = true;
+              break;
+            }
+          }
+        } else {
+          steps.push({ ...failStep, d: '💥 The link dies. Split horizon is ON: C will NEVER advertise E back to B (C learned it from B).'});
+          steps.push({ d: 'Round 1: B hears only A = ∞ → flushes the route instantly. No rumour exists to feed on.', paint: () => draw(true, { via: '—', cost: 16 }, C, [['A', 'B', 16]]) });
+          steps.push({ d: 'Round 2: C hears B = ∞ → C flushes too. Converged in 2 rounds — the poison is contained.', paint: () => draw(true, { via: '—', cost: 16 }, { via: '—', cost: 16 }, [], { ok: true, msg: '✅ converged in 2 rounds — split horizon starves the rumour' }) });
+        }
+        return steps;
+      }
+
+      let timer = null, steps = [], i = 0;
+      function play() {
+        if (timer) { clearInterval(timer); timer = null; $('#gPlay', shell).textContent = '▶ Play'; return; }
+        $('#gPlay', shell).textContent = '⏸ Pause';
+        timer = setInterval(() => { if (i >= steps.length || !alive.v) { clearInterval(timer); timer = null; return; } steps[i++].paint(); }, 1400);
+      }
+      // add play button dynamically
+      const playBtn = el('button', 'btn primary small', '▶ Play');
+      playBtn.id = 'gPlay';
+      playBtn.onclick = play;
+      $('.lab-controls', shell).insertBefore(playBtn, $('#gFail', shell));
+
+      function reset(splitOn) {
+        clearInterval(timer); timer = null; i = 0;
+        steps = build(splitOn);
+        logs.innerHTML = '';
+        steps[0].paint(); i = 1;
+        $('#gRound', shell).textContent = 'round 0 — healthy';
+        $('#gFail', shell).disabled = false;
+      }
+      let splitOn = false;
+      $('#gFail', shell).onclick = () => {
+        $('#gFail', shell).disabled = true;
+        i = 1; // skip the healthy step
+        const run = () => {
+          if (i >= steps.length || !alive.v) return;
+          const st = steps[i++];
+          st.paint();
+          logTo(logs, i, st.d);
+          $('#gRound', shell).textContent = 'round ' + Math.max(1, i - 1) + (i >= steps.length ? ' — done' : '');
+          if (i < steps.length) setTimeout(run, 1600);
+        };
+        run();
+      };
+      $('#gSplit', shell).onclick = () => {
+        splitOn = !splitOn;
+        $('#gSplit', shell).textContent = 'Split horizon: ' + (splitOn ? 'ON ✅' : 'OFF');
+        reset(splitOn);
+      };
+      $('#gReset', shell).onclick = () => { splitOn = false; $('#gSplit', shell).textContent = 'Split horizon: OFF'; reset(false); };
+      reset(false);
+    },
+    teardown() { if (this._teardown) this._teardown(); },
+  });
+
   window.CN_LABS = LABS;
 })();
