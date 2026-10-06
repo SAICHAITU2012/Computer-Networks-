@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>NetMastery — Computer Networks Interactive Learning</title>
+<meta name="description" content="Master Computer Networks through gamified interactive lectures, labs, quizzes and mini-games. Covers OSI model, subnetting, routing, DNS, TCP/UDP and more.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/site.css?v=17">
+</head>
+<body>
+
+<button class="nav-toggle" id="navToggle" aria-label="Menu">☰</button>
+
+<nav class="sidebar" id="sidebar">
+  <div class="logo">
+    <div class="glyph">CN</div>
+    <div>
+      <div class="t1">NetMastery</div>
+      <div class="t2">Computer Networks</div>
+    </div>
+    <button class="theme-toggle" id="themeToggle" title="Toggle dark/light mode">🌙</button>
+  </div>
+  <div id="navList"></div>
+  <div class="nav-progress">
+    <div class="np-row">
+      <span>Course progress</span><b id="navPct">0%</b>
+    </div>
+    <div class="bar"><i id="navBar" style="width:0%"></i></div>
+  </div>
+</nav>
+
+<main class="main">
+  <div class="view" id="view"></div>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script src="assets/bg3d.js?v=17"></script>
+<script src="assets/game.js?v=17"></script>
+<script src="assets/labs.js?v=17"></script>
+<script src="assets/arcade.js?v=17"></script>
+<script src="assets/assignment.js?v=17"></script>
+<script src="assets/assignview.js?v=17"></script>
+<script src="assets/app.js?v=17"></script>
+
+<script>
+// Theme toggle — persisted in localStorage
+(function() {
+  const saved = localStorage.getItem('cn_theme') || 'dark';
+  document.documentElement.setAttribute('data-theme', saved);
+
+  document.addEventListener('DOMContentLoaded', function() {
+    const btn = document.getElementById('themeToggle');
+    if (!btn) return;
+    function updateIcon() {
+      const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+      btn.textContent = isDark ? '🌙' : '☀️';
+      btn.title = isDark ? 'Switch to light mode' : 'Switch to dark mode';
+    }
+    updateIcon();
+    btn.addEventListener('click', function() {
+      const cur = document.documentElement.getAttribute('data-theme');
+      const next = cur === 'dark' ? 'light' : 'dark';
+      document.documentElement.setAttribute('data-theme', next);
+      localStorage.setItem('cn_theme', next);
+      updateIcon();
+    });
+  });
+})();
+</script>
+</body>
+</html>
