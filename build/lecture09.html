@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 9 — DNS and Internet Applications</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#2563eb; --acc-d:#274a8f; --acc-l:#ecf1fa; --acc-m:#c5d5ee; }
+/* URL figure: stack labels under values so min-content fits the print column */
+.pdu.url span { display: block; line-height: 1.25; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">09</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>DNS and<br>Internet Applications</h1>
+    <div class="tagline">The Internet's phone book and its favourite protocol: DNS hierarchy and resolution, URL anatomy, HTTP requests and responses, status codes, cookies and sessions.</div>
+    <div class="chips"><span class="chip">Why DNS</span><span class="chip">Root · TLD · Authoritative</span><span class="chip">Recursive Resolver</span><span class="chip">Caching &amp; TTL</span><span class="chip">URL Anatomy</span><span class="chip">HTTP Request/Response</span><span class="chip">Methods</span><span class="chip">Status Codes</span><span class="chip">Cookies</span><span class="chip">Sessions</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>Everything between "typing a name" and "seeing a page": why DNS exists, its three-tier hierarchy, the full 9-step resolution walk, record types and dig commands; then HTTP — message formats byte-by-byte, methods with idempotency/safety, status-code families, and how cookies + sessions put memory into a stateless protocol.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Commands · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Explain <b>why DNS</b> exists and walk its <b>hierarchy</b> (root → TLD → authoritative)</li>
+    <li>Trace the <b>full resolution sequence</b> with caching and TTL</li>
+    <li>Interpret <b>DNS record types</b> and use <span class="k">dig</span> / <span class="k">nslookup</span></li>
+    <li>Parse a <b>URL</b> into all seven components</li>
+    <li>Read/write <b>HTTP requests &amp; responses</b>; know methods and <b>status codes</b></li>
+    <li>Explain <b>cookies vs sessions</b> and their security flags</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">DNS &amp; HTTP</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Why DNS</div><div class="mm-children"><div class="mm-child">names beat numbers</div><div class="mm-child">IPs change, names stay</div><div class="mm-child">load balancing / CDN</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Hierarchy</div><div class="mm-children"><div class="mm-child">13 root servers (A–M)</div><div class="mm-child">TLD: .com .org .in</div><div class="mm-child">authoritative: ns1.google.com</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Resolution</div><div class="mm-children"><div class="mm-child">browser → OS → resolver</div><div class="mm-child">root → TLD → auth</div><div class="mm-child">cache + TTL</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Records</div><div class="mm-children"><div class="mm-child">A · AAAA · CNAME</div><div class="mm-child">MX · NS · TXT · PTR</div></div></div>
+    <div class="mm-branch"><div class="mm-node">HTTP</div><div class="mm-children"><div class="mm-child">text · stateless · req-res</div><div class="mm-child">GET POST PUT PATCH DELETE</div><div class="mm-child">1xx–5xx codes</div></div></div>
+    <div class="mm-branch"><div class="mm-node">State</div><div class="mm-children"><div class="mm-child">Set-Cookie → Cookie</div><div class="mm-child">HttpOnly · Secure · SameSite</div><div class="mm-child">session id → server store</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Why DNS?</h2><div class="rule"></div></div>
+  <p><b>DNS (Domain Name System)</b> translates human-readable names (<span class="mono">google.com</span>) into IP addresses (<span class="mono">142.250.195.46</span>). Why not use IPs directly?</p>
+  <ul>
+    <li><b>Memory:</b> names beat dotted quads (especially IPv6 monsters)</li>
+    <li><b>Stability:</b> servers change IPs; the name stays constant</li>
+    <li><b>Scaling:</b> one name → many IPs (load balancing) · many users → nearest IP (CDN geo-routing)</li>
+  </ul>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body">DNS = the Internet's <b>phone book</b>: you know the name ("Mom"), the phone book gives the number. And like a good contact app, everyone <b>caches</b> recently-dialled numbers so the book isn't opened every time.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>The DNS Hierarchy</h2><div class="rule"></div></div>
+  <div class="fig">
+    <svg viewBox="0 0 680 218" width="100%">
+      <rect x="290" y="10" width="100" height="36" rx="9" fill="#274a8f"/>
+      <text x="340" y="32" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">. root</text>
+      <g stroke="#2563eb" stroke-width="1.8">
+        <line x1="318" y1="46" x2="120" y2="76"/><line x1="330" y1="46" x2="290" y2="76"/>
+        <line x1="352" y1="46" x2="440" y2="76"/><line x1="358" y1="46" x2="560" y2="76"/>
+      </g>
+      <g>
+        <rect x="60" y="76" width="120" height="34" rx="8" class="f-accl" stroke="#2563eb" stroke-width="1.4"/>
+        <text x="120" y="97" class="svg-t" font-size="10.5" font-weight="800" fill="#274a8f" text-anchor="middle">com</text>
+        <rect x="230" y="76" width="120" height="34" rx="8" class="f-accl" stroke="#2563eb" stroke-width="1.4"/>
+        <text x="290" y="97" class="svg-t" font-size="10.5" font-weight="800" fill="#274a8f" text-anchor="middle">org</text>
+        <rect x="380" y="76" width="120" height="34" rx="8" class="f-accl" stroke="#2563eb" stroke-width="1.4"/>
+        <text x="440" y="97" class="svg-t" font-size="10.5" font-weight="800" fill="#274a8f" text-anchor="middle">in</text>
+        <rect x="500" y="76" width="120" height="34" rx="8" class="f-accl" stroke="#2563eb" stroke-width="1.4"/>
+        <text x="560" y="97" class="svg-t" font-size="10.5" font-weight="800" fill="#274a8f" text-anchor="middle">net …</text>
+      </g>
+      <line x1="120" y1="110" x2="120" y2="136" stroke="#2563eb" stroke-width="1.8"/>
+      <line x1="120" y1="136" x2="160" y2="136" stroke="none"/>
+      <rect x="60" y="136" width="200" height="34" rx="8" fill="#2563eb"/>
+      <text x="160" y="157" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">google.com  ·  amazon.com</text>
+      <g stroke="#2563eb" stroke-width="1.8">
+        <line x1="110" y1="170" x2="95" y2="188"/><line x1="160" y1="170" x2="175" y2="188"/><line x1="215" y1="170" x2="235" y2="188"/>
+      </g>
+      <g class="svg-t" font-size="9.4" fill="#274a8f" font-weight="700">
+        <text x="85" y="202">www</text><text x="168" y="202">mail</text><text x="228" y="202">maps</text>
+      </g>
+      <g class="svg-t" font-size="8.8" fill="#64748b">
+        <text x="500" y="150">ROOT SERVERS — know TLD addresses</text>
+        <text x="500" y="164">TLD SERVERS — know each domain's NS</text>
+        <text x="500" y="178">AUTHORITATIVE — know the actual A records</text>
+        <text x="500" y="192" font-weight="700" fill="#2563eb">RECURSIVE RESOLVER — does the walking</text>
+      </g>
+    </svg>
+    <div class="fig-cap"><b>Figure 1.</b> A distributed tree: no single server knows everything — each level delegates downward.</div>
+  </div>
+  <table class="t">
+    <tr><th>Server type</th><th>Knows</th><th>Example</th></tr>
+    <tr><td><b>Root servers</b></td><td>Which servers run each TLD (13 logical identities A–M)</td><td>Operated by ICANN, Verisign…</td></tr>
+    <tr><td><b>TLD servers</b></td><td>The authoritative nameservers of every domain under their TLD</td><td>Verisign runs .com</td></tr>
+    <tr><td><b>Authoritative servers</b></td><td>The actual records for one specific domain</td><td class="mono">ns1.google.com</td></tr>
+    <tr><td><b>Recursive resolver</b></td><td>Nothing by default — it <i>walks the tree for you</i> and caches answers</td><td>Your ISP's DNS · 8.8.8.8 · 1.1.1.1</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Full Resolution — Step by Step</h2><div class="rule"></div></div>
+  <p><b>Query:</b> browser needs the IP for <span class="mono">www.google.com</span></p>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">1</span>Browser cache</div><div class="tl-d">Fresh cached answer? Use it. Done — no network.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">2</span>OS cache + <span class="mono">/etc/hosts</span></div><div class="tl-d">Local system-level cache and hosts file.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">3</span>Ask the recursive resolver</div><div class="tl-d">Query to configured DNS (router, ISP, 8.8.8.8) — UDP port 53.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">4</span>Resolver cache</div><div class="tl-d">Cached &amp; TTL-valid? Instant answer. Else start walking.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">5</span>Resolver → ROOT server</div><div class="tl-d">Root: "Not me — the <b>.com</b> TLD is at 192.5.6.30." <b>(referral)</b></div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">6</span>Resolver → .com TLD</div><div class="tl-d">TLD: "Ask Google's nameservers — <b>ns1.google.com</b>." <b>(referral)</b></div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">7</span>Resolver → authoritative</div><div class="tl-d">ns1: "www.google.com = <b>142.250.195.46</b>, TTL 300" <b>(answer)</b></div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">8–9</span>Cache + return</div><div class="tl-d">Resolver caches for TTL seconds and returns the IP; browser connects to it.</div></div></div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><b>Iterative vs recursive:</b> the <i>resolver</i> does iterative walks (ask root, then TLD, then auth); your machine makes one <i>recursive</i> request ("get me the answer, however many steps it takes"). Draw the 9 arrows — it's a guaranteed diagram question.</div></div>
+  <h3>Caching &amp; TTL</h3>
+  <ul>
+    <li>Every record carries a <b>TTL (seconds to cache)</b>; after expiry the resolver must re-ask.</li>
+    <li><b>Low TTL</b> = fast changes, more queries · <b>High TTL</b> = fewer queries, slow propagation.</li>
+  </ul>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>DNS Record Types &amp; Lookup Tools</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Record</th><th>Purpose</th><th>Example</th></tr>
+    <tr><td><b>A</b></td><td>name → IPv4</td><td class="mono">google.com → 142.250.195.46</td></tr>
+    <tr><td><b>AAAA</b></td><td>name → IPv6</td><td class="mono">google.com → 2607:f8b0::200e</td></tr>
+    <tr><td><b>CNAME</b></td><td>alias → canonical name</td><td class="mono">www.example.com → example.com</td></tr>
+    <tr><td><b>MX</b></td><td>mail servers for the domain</td><td class="mono">google.com MX → smtp.google.com</td></tr>
+    <tr><td><b>NS</b></td><td>the domain's nameservers</td><td class="mono">google.com NS → ns1.google.com</td></tr>
+    <tr><td><b>TXT</b></td><td>arbitrary text — SPF, DKIM, verification</td><td class="mono">"v=spf1 include:_spf.google.com ~all"</td></tr>
+    <tr><td><b>PTR</b></td><td>reverse: IP → name</td><td class="mono">46.195.250.142… → google.com</td></tr>
+  </table>
+  <div class="code-head"><span>dns lookup commands</span><span>terminal</span></div>
+  <div class="code"><span class="fn">dig</span> www.google.com                    <span class="ch"># basic A lookup</span>
+<span class="fn">dig</span> @8.8.8.8 www.google.com            <span class="ch"># ask a specific resolver</span>
+<span class="fn">dig</span> +trace www.google.com              <span class="ch"># walk root→TLD→auth live!</span>
+<span class="fn">dig</span> google.com MX · AAAA · NS · TXT    <span class="ch"># specific record types</span>
+<span class="fn">dig</span> -x 142.250.195.46                  <span class="ch"># reverse (PTR) lookup</span>
+<span class="fn">nslookup</span> -type=MX google.com           <span class="ch"># the simpler cousin</span></div>
+  <div class="code"><span class="ch"># reading dig output:</span>
+<span class="out">;; ANSWER SECTION:
+www.google.com.   300   IN   A   142.250.195.46</span>
+<span class="ch">#                 ↑TTL      ↑type ↑ answer</span></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>URL Anatomy</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="pdu url" style="font-size:9.6px; display:grid; grid-template-columns:10fr 12fr 18fr 7fr 16fr 15fr 14fr">
+      <span style="background:#274a8f; color:#fff">https://<span class="lbl">scheme</span></span>
+      <span style="background:#3b6bb5; color:#fff">user:pass@<span class="lbl">userinfo (rare)</span></span>
+      <span style="background:#2563eb; color:#fff">www.example.com<span class="lbl">host (DNS)</span></span>
+      <span style="background:#5b8def; color:#fff">:8080<span class="lbl">port</span></span>
+      <span style="background:#8fb2f5; color:#274a8f">/path/to/resource<span class="lbl">path</span></span>
+      <span style="background:#c5d5ee; color:#274a8f">?q=search&amp;page=2<span class="lbl">query</span></span>
+      <span style="background:#ecf1fa; color:#274a8f; border:1px solid var(--acc-m)">#section3<span class="lbl">fragment</span></span>
+    </div>
+    <div class="fig-cap"><b>Figure 2.</b> Every piece of a URL — defaults: port 80 (HTTP) / 443 (HTTPS) omitted.</div>
+  </div>
+  <div class="callout co-warn"><div class="tag">Trap</div><div class="body">The <b>fragment never leaves the browser</b> — servers never see <span class="mono">#section3</span>. Query strings ARE sent and must be URL-encoded. Favourite MCQ.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>HTTP — Request &amp; Response</h2><div class="rule"></div></div>
+  <p><b>HTTP</b> is <b>text-based</b> (human-readable), <b>stateless</b> (each request is independent), and <b>request-response</b> (client initiates, server responds).</p>
+  <div class="grid2">
+    <div>
+      <div class="code-head"><span>http request</span><span>client → server</span></div>
+      <div class="code"><span class="kw">GET</span> /products?id=42 <span class="out">HTTP/1.1</span>        <span class="ch">← request line</span>
+<span class="fn">Host:</span> www.example.com               <span class="ch">← required in 1.1</span>
+<span class="fn">User-Agent:</span> Mozilla/5.0
+<span class="fn">Accept:</span> text/html
+<span class="fn">Cookie:</span> session=abc123
+                                     <span class="ch">← blank line</span>
+{ json body — POST/PUT only }</div>
+    </div>
+    <div>
+      <div class="code-head"><span>http response</span><span>server → client</span></div>
+      <div class="code"><span class="out">HTTP/1.1</span> <span class="kw">200 OK</span>                      <span class="ch">← status line</span>
+<span class="fn">Content-Type:</span> text/html; charset=UTF-8
+<span class="fn">Content-Length:</span> 4523
+<span class="fn">Set-Cookie:</span> session=abc; HttpOnly; Secure
+<span class="fn">Cache-Control:</span> max-age=3600
+                                     <span class="ch">← blank line</span>
+&lt;!DOCTYPE html&gt; &lt;html&gt;…              <span class="ch">← body</span></div>
+    </div>
+  </div>
+  <h3>Methods</h3>
+  <table class="t">
+    <tr><th>Method</th><th>Purpose</th><th>Body?</th><th>Idempotent?</th><th>Safe?</th></tr>
+    <tr><td><b>GET</b></td><td>Retrieve</td><td>No</td><td class="good">Yes</td><td class="good">Yes</td></tr>
+    <tr><td><b>POST</b></td><td>Create / submit</td><td>Yes</td><td class="bad">No</td><td class="bad">No</td></tr>
+    <tr><td><b>PUT</b></td><td>Replace whole resource</td><td>Yes</td><td class="good">Yes</td><td class="bad">No</td></tr>
+    <tr><td><b>PATCH</b></td><td>Partial update</td><td>Yes</td><td class="bad">No</td><td class="bad">No</td></tr>
+    <tr><td><b>DELETE</b></td><td>Remove</td><td>No</td><td class="good">Yes</td><td class="bad">No</td></tr>
+    <tr><td><b>HEAD</b></td><td>Headers only</td><td>No</td><td class="good">Yes</td><td class="good">Yes</td></tr>
+    <tr><td><b>OPTIONS</b></td><td>What's allowed?</td><td>No</td><td class="good">Yes</td><td class="good">Yes</td></tr>
+  </table>
+  <div class="card"><div class="c-title">Definitions + REST pattern</div><b>Idempotent</b> = repeating gives the same result as once. <b>Safe</b> = changes nothing. REST: <span class="mono">GET /api/users</span> list · <span class="mono">POST /api/users</span> create · <span class="mono">GET /api/users/42</span> one · <span class="mono">PUT /api/users/42</span> replace · <span class="mono">PATCH</span> partial · <span class="mono">DELETE</span> remove.</div>
+  <h3>Status codes</h3>
+  <table class="t">
+    <tr><th>Family</th><th>Meaning</th><th>Know cold</th></tr>
+    <tr><td><b>1xx</b></td><td>Informational</td><td class="mono">100 Continue</td></tr>
+    <tr><td><b>2xx</b></td><td class="good">Success</td><td class="mono">200 OK · 201 Created · 204 No Content</td></tr>
+    <tr><td><b>3xx</b></td><td>Redirection</td><td class="mono">301 permanent · 302 temporary · 304 Not Modified</td></tr>
+    <tr><td><b>4xx</b></td><td class="bad">Client error</td><td class="mono">400 Bad Request · 401 Unauthorized · 403 Forbidden · 404 Not Found · 429 Too Many</td></tr>
+    <tr><td><b>5xx</b></td><td class="bad">Server error</td><td class="mono">500 Internal · 502 Bad Gateway · 503 Unavailable · 504 Timeout</td></tr>
+  </table>
+  <div class="grid3">
+    <div class="card acc"><b>301 vs 302</b><br>permanent (browsers &amp; SEO update) vs temporary redirect.</div>
+    <div class="card acc"><b>401 vs 403</b><br>401 "who are you?" (not authenticated) vs 403 "I know you — still no" (not authorized).</div>
+    <div class="card acc"><b>500 vs 502</b><br>this server broke vs the upstream server sent garbage (gateway view).</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Cookies &amp; Sessions — Memory for a Stateless Protocol</h2><div class="rule"></div></div>
+  <p>HTTP forgets you between requests. <b>Cookies</b> fix it: the server hands the browser a token; the browser returns it on every subsequent request — the server recognises the token and "remembers".</p>
+  <div class="flow"><span class="fc hot">1 Login POST</span><span class="fa">→</span><span class="fc">2 Set-Cookie: session=abc</span><span class="fa">→</span><span class="fc">3 Browser stores</span><span class="fa">→</span><span class="fc">4 Cookie: session=abc (every request)</span><span class="fa">→</span><span class="fc">5 Server maps id → your session</span></div>
+  <table class="t small">
+    <tr><th>Attribute</th><th>Effect</th></tr>
+    <tr><td><b>HttpOnly</b></td><td>JavaScript can't read the cookie → blunts XSS token theft</td></tr>
+    <tr><td><b>Secure</b></td><td>Sent over HTTPS only → no plaintext interception</td></tr>
+    <tr><td><b>SameSite=Strict</b></td><td>Never sent on cross-site requests → CSRF defence</td></tr>
+    <tr><td><b>Max-Age=N</b></td><td>Expires after N seconds</td></tr>
+    <tr><td><b>Domain=.example.com</b></td><td>Shared across all subdomains</td></tr>
+  </table>
+  <table class="t small">
+    <tr><th></th><th>Cookie (client-side)</th><th>Session (server-side)</th></tr>
+    <tr><td><b>Stored at</b></td><td>Browser</td><td>Server (DB / Redis)</td></tr>
+    <tr><td><b>Contains</b></td><td>Session ID (or data)</td><td>The actual user data</td></tr>
+    <tr><td><b>Size</b></td><td>~4 KB</td><td>Unlimited</td></tr>
+    <tr><td><b>Visible to user?</b></td><td>Yes</td><td>No</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><b>Authentication vs Authorization:</b> authN = proving identity (login, 401 when missing); authZ = checking permission (403 when denied). And: servers store a <b>session ID</b> in the cookie — not your data — so a stolen cookie is a stolen identity but a leaked DB row doesn't leak sessions.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 9 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>DNS</b>: name → IP; hierarchy root → TLD → authoritative; resolver walks it for you.</div>
+    <div class="cheat-item"><b>Resolution</b>: browser → OS → resolver cache → root → TLD → auth → cached (TTL).</div>
+    <div class="cheat-item"><b>Records</b>: A · AAAA · CNAME alias · MX mail · NS · TXT · PTR reverse.</div>
+    <div class="cheat-item"><b>dig +trace</b> shows the whole walk; TTL controls cache freshness.</div>
+    <div class="cheat-item"><b>URL</b> = scheme://user@host:port/path?query#fragment — <b>fragment stays in browser</b>.</div>
+    <div class="cheat-item"><b>HTTP</b>: text, stateless, request-response; Host header required in 1.1.</div>
+    <div class="cheat-item"><b>Methods</b>: GET safe+idempotent · POST neither · PUT idempotent · PATCH partial.</div>
+    <div class="cheat-item"><b>Codes</b>: 2xx ok · 3xx redirect (301 perm / 302 temp / 304 cached) · 4xx your fault (401 vs 403) · 5xx server's fault.</div>
+    <div class="cheat-item"><b>Cookies</b>: Set-Cookie → auto-returned; HttpOnly (XSS) + Secure (HTTPS) + SameSite (CSRF).</div>
+    <div class="cheat-item"><b>Session</b>: ID in cookie, data on server.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Which DNS record maps a domain to an IPv6 address?<ul class="opts"><li>a) A</li><li>b) CNAME</li><li>c) AAAA</li><li>d) MX</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>In DNS resolution, a "referral" is:<ul class="opts"><li>a) the final IP answer</li><li>b) a pointer to the next server to ask</li><li>c) a cached entry</li><li>d) an error</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>Which part of the URL is never sent to the server?<ul class="opts"><li>a) path</li><li>b) query string</li><li>c) host</li><li>d) fragment (#)</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>403 Forbidden means:<ul class="opts"><li>a) you aren't authenticated</li><li>b) you're authenticated but not allowed</li><li>c) server crashed</li><li>d) resource moved</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>Which HTTP method is NOT idempotent?<ul class="opts"><li>a) GET</li><li>b) PUT</li><li>c) DELETE</li><li>d) POST</li></ul></div>
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">MCQ</span>The HttpOnly cookie attribute protects against:<ul class="opts"><li>a) CSRF</li><li>b) XSS stealing the cookie</li><li>c) eavesdropping</li><li>d) session expiry</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>List the order of caches consulted before any DNS server is contacted.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>What is a CNAME and when would you use one?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>Differentiate 301 vs 302 and 401 vs 403.</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>Why store only a session ID in the cookie instead of the user's data?</div>
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Short</span>Which DNS record type configures email for a domain, and which proves domain ownership to a CA?</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Draw and explain the complete DNS resolution for www.google.com: every cache, server type, referral and answer, and where TTL applies. Distinguish recursive vs iterative queries.</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Explain the HTTP request-response cycle with annotated request and response messages. Cover methods (idempotent/safe), status-code families with examples, and keep-alive.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>How do cookies and sessions create state over stateless HTTP? Include the Set-Cookie flow diagram and explain HttpOnly, Secure, and SameSite=Strict with the attack each defeats.</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Long</span>Explain URL anatomy with the full annotated example; which components go to the server and which stay local?</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> c — AAAA ("quad-A").</div>
+    <div class="a-item"><b>A2.</b> b — "I don't know, ask X" (root→TLD, TLD→auth).</div>
+    <div class="a-item"><b>A3.</b> d — the fragment is browser-only.</div>
+    <div class="a-item"><b>A4.</b> b — authenticated, not authorized.</div>
+    <div class="a-item"><b>A5.</b> d — POST repeats create duplicates.</div>
+    <div class="a-item"><b>A6.</b> b — JS can't read it; CSRF is SameSite's job; eavesdropping is Secure's.</div>
+    <div class="a-item"><b>A7.</b> Browser cache → OS resolver cache → /etc/hosts → (then the recursive resolver's own cache).</div>
+    <div class="a-item"><b>A8.</b> Alias pointing to a canonical name — e.g. www → root domain, or pointing at a CDN.</div>
+    <div class="a-item"><b>A9.</b> 301 permanent (SEO updates) vs 302 temporary; 401 unauthenticated "who are you" vs 403 unauthorized "not allowed".</div>
+    <div class="a-item"><b>A10.</b> 4 KB limit, tampering by client, data exposure — the ID is a capability token, real data stays server-side.</div>
+    <div class="a-item"><b>A11.</b> MX for mail routing; TXT for ownership/SPF/DKIM proofs.</div>
+    <div class="a-item"><b>A12–A15.</b> Reproduce the 9-step timeline, Figure 1, the request/response code blocks, and the cookie flow — annotated diagrams earn the marks.</div>
+  </div>
+  <div class="card acc" style="margin-top:14px;">
+    <div class="c-title">Wrap-Up — carry these into Lecture 10</div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="callout co-info"><span class="tag">Name → IP</span><div class="body">Stub resolver → recursive resolver → <b>root → TLD → authoritative</b>, cached at every step. UDP 53 (TCP 53 for big/zone answers).</div></div>
+      <div class="callout co-info"><span class="tag">Records</span><div class="body"><b>A</b> name→IPv4 · <b>AAAA</b> →IPv6 · <b>CNAME</b> alias · <b>MX</b> mail · <b>TXT</b> proofs · <b>NS</b> delegation.</div></div>
+      <div class="callout co-warn"><span class="tag">HTTP shapes</span><div class="body">GET/PUT/DELETE are <b>idempotent</b>; POST is not. 301/302 redirect, 401 vs 403, cookies carry identity (4 KB, credential-ish).</div></div>
+      <div class="callout co-ok"><span class="tag">Never sent</span><div class="body">The <b>#fragment</b> stays in the browser; query strings go to the server and must be URL-encoded.</div></div>
+    </div>
+    <div class="callout co-exam" style="margin-top:9px;"><span class="tag">Next</span><div class="body"><b>Lecture 10 — TCP, UDP &amp; Sockets:</b> the transport layer beneath it all — ports, the 3-way handshake, reliability, and your first socket code.</div></div>
+  </div>
+</div>
+
+</body>
+</html>

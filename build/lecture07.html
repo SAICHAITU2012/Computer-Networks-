@@ -1,0 +1,251 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 7 — Routing and Forwarding I</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#d97706; --acc-d:#8a5410; --acc-l:#fbf3e4; --acc-m:#ecd3a8; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">07</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Routing and<br>Forwarding — Part I</h1>
+    <div class="tagline">Routers, routing tables, Longest Prefix Match, static routes, default routes, hop-by-hop forwarding, and why TTL exists.</div>
+    <div class="chips"><span class="chip">Router Anatomy</span><span class="chip">Routing Table</span><span class="chip">Longest Prefix Match</span><span class="chip">Static Routing</span><span class="chip">Default Route 0.0.0.0/0</span><span class="chip">Packet Forwarding</span><span class="chip">Hop-by-Hop</span><span class="chip">TTL</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>What a router actually does with your packet: the control plane vs data plane split, reading real routing tables, the Longest Prefix Match rule with worked lookups, static and default routes with Linux commands, a complete hop-by-hop forwarding trace, and the header fields that change at every hop — TTL, MACs, and why.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Commands · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Distinguish <b>routing</b> (control plane) from <b>forwarding</b> (data plane)</li>
+    <li>Read and interpret a <b>routing table</b> (destination, next hop, interface, metric)</li>
+    <li>Apply <b>Longest Prefix Match</b> to pick the winning route</li>
+    <li>Configure <b>static</b> and <b>default routes</b>; know when static fails</li>
+    <li>Trace <b>hop-by-hop forwarding</b> and explain <b>TTL</b></li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Routing &amp; Forwarding I</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Router</div><div class="mm-children"><div class="mm-child">many interfaces</div><div class="mm-child">routing + forwarding engines</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Two planes</div><div class="mm-children"><div class="mm-child">control: build the table</div><div class="mm-child">data: move each packet</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Routing table</div><div class="mm-children"><div class="mm-child">dest → next hop + iface</div><div class="mm-child">metric · source</div></div></div>
+    <div class="mm-branch"><div class="mm-node">LPM</div><div class="mm-children"><div class="mm-child">most bits matched wins</div><div class="mm-child">enables hierarchy</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Default route</div><div class="mm-children"><div class="mm-child">0.0.0.0/0 catch-all</div><div class="mm-child">home routers point to ISP</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Static routing</div><div class="mm-children"><div class="mm-child">manual · simple</div><div class="mm-child">no failover</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Hop-by-hop</div><div class="mm-children"><div class="mm-child">each router: next step only</div><div class="mm-child">TTL−1 per hop</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Routing vs Forwarding</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Concept</th><th>Definition</th><th>When</th><th>Plane</th><th>Speed</th></tr>
+    <tr><td><b>Routing</b></td><td>Deciding WHERE packets should go — building/maintaining the routing table</td><td>Periodically / on topology change</td><td>Control plane</td><td>Slow, intelligent (algorithms, protocols)</td></tr>
+    <tr><td><b>Forwarding</b></td><td>Actually moving each packet out the correct interface</td><td>For <b>every single packet</b></td><td>Data plane</td><td>Fast, mechanical (table lookup, ASIC hardware)</td></tr>
+  </table>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body">Routing = <b>planning the highway map</b> (surveying roads, updating the map). Forwarding = <b>reading a signpost at each junction</b> and turning. Drivers (packets) never see the map — only signposts.</div></div>
+  <h3>What is a router?</h3>
+  <ul>
+    <li><b>Multiple network interfaces</b>, each attached to a different network</li>
+    <li>A <b>routing table</b>: destination → next hop + interface</li>
+    <li>A <b>routing engine</b> (control plane) that learns routes</li>
+    <li>A <b>forwarding engine</b> (data plane) that processes packets at line speed</li>
+  </ul>
+  <div class="fig">
+    <svg viewBox="0 0 680 150" width="100%">
+      <rect x="250" y="45" width="180" height="62" rx="10" fill="#8a5410"/>
+      <text x="340" y="70" class="svg-t" font-size="12" font-weight="800" fill="#fff" text-anchor="middle">ROUTER</text>
+      <text x="340" y="87" class="svg-t" font-size="9" fill="#ecd3a8" text-anchor="middle">routing table · LPM · TTL−1 · new frame</text>
+      <!-- LAN -->
+      <g>
+        <rect x="20" y="18" width="120" height="34" rx="7" class="f-accl" stroke="#d97706" stroke-width="1.4"/>
+        <text x="80" y="39" class="svg-t" font-size="9.2" font-weight="700" fill="#8a5410" text-anchor="middle">PC · Phone · TV</text>
+        <rect x="20" y="100" width="120" height="34" rx="7" class="f-accl" stroke="#d97706" stroke-width="1.4"/>
+        <text x="80" y="121" class="svg-t" font-size="9.2" font-weight="700" fill="#8a5410" text-anchor="middle">LAN switch</text>
+      </g>
+      <!-- WAN -->
+      <rect x="540" y="59" width="120" height="34" rx="7" class="f-accl" stroke="#d97706" stroke-width="1.4"/>
+      <text x="600" y="80" class="svg-t" font-size="9.2" font-weight="700" fill="#8a5410" text-anchor="middle">ISP / Internet</text>
+      <g stroke="#d97706" stroke-width="2.4">
+        <line x1="140" y1="35" x2="248" y2="60"/>
+        <line x1="140" y1="117" x2="248" y2="92"/>
+        <line x1="430" y1="76" x2="538" y2="76"/>
+      </g>
+      <text x="180" y="24" class="svg-t" font-size="9" fill="#8a5410" font-weight="700">eth0 · 192.168.1.1/24 (LAN)</text>
+      <text x="440" y="64" class="svg-t" font-size="9" fill="#8a5410" font-weight="700">eth1 · 10.0.0.1/30 (WAN)</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 1.</b> A router joins two or more networks — one interface per network.</div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><b>Router vs Switch:</b> Switch = Layer 2, forwards by <b>MAC</b>, inside one LAN. Router = Layer 3, forwards by <b>IP + routing table</b>, <b>between</b> networks. Modern "home routers" bundle both (Lecture 11).</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>The Routing Table</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Field</th><th>Meaning</th></tr>
+    <tr><td><b>Destination network</b></td><td>IP prefix this entry covers (e.g. 172.16.0.0/16)</td></tr>
+    <tr><td><b>Next hop</b></td><td>IP of the next router to hand the packet to ("directly connected" = deliver yourself)</td></tr>
+    <tr><td><b>Interface</b></td><td>Which port to send it out (eth0, eth1…)</td></tr>
+    <tr><td><b>Metric</b></td><td>Cost of this route — lower wins when several routes match equally</td></tr>
+    <tr><td><b>Source</b></td><td>How learned: connected · static · OSPF · BGP…</td></tr>
+  </table>
+  <div class="code-head"><span>reading a real linux routing table</span><span>terminal</span></div>
+  <div class="code"><span class="fn">ip route show</span>
+<span class="out">default via 192.168.1.1 dev eth0                        </span><span class="ch"># catch-all → gateway</span>
+<span class="out">10.0.0.0/30 dev eth1 proto kernel scope link src 10.0.0.1</span><span class="ch"># directly connected</span>
+<span class="out">192.168.1.0/24 dev eth0 proto kernel scope link src 192.168.1.5</span>
+<span class="out">172.16.0.0/16 via 10.0.0.2 dev eth1 metric 100</span>          <span class="ch"># learned route</span></div>
+  <div class="card acc">
+    <div class="c-title">Example — Router R1 with three interfaces</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>Destination</th><th>Next hop</th><th>Interface</th><th>Source</th></tr>
+      <tr><td class="mono">192.168.10.0/24</td><td>directly connected</td><td>eth0 (Engineering LAN)</td><td>connected</td></tr>
+      <tr><td class="mono">192.168.20.0/24</td><td>directly connected</td><td>eth1 (Marketing LAN)</td><td>connected</td></tr>
+      <tr><td class="mono">10.1.1.0/30</td><td>directly connected</td><td>eth2 (WAN to ISP)</td><td>connected</td></tr>
+      <tr><td class="mono">0.0.0.0/0</td><td>10.1.1.2</td><td>eth2</td><td>static</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Longest Prefix Match (LPM)</h2><div class="rule"></div></div>
+  <p>When a packet's destination matches <b>multiple entries</b>, the <b>most specific (longest) prefix wins</b>.</p>
+  <div class="card acc">
+    <div class="c-title">Worked lookup — destination 192.168.1.200</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>Table entry</th><th>Matches?</th><th>Bits matched</th><th>Result</th></tr>
+      <tr><td class="mono">192.168.0.0/16 via 10.0.0.1</td><td>✓ (192.168.x.x ⊂ /16)</td><td>16</td><td></td></tr>
+      <tr><td class="mono">192.168.1.0/24 via 10.0.0.2</td><td>✓</td><td>24</td><td></td></tr>
+      <tr><td class="mono">192.168.1.128/25 via 10.0.0.3</td><td>✓ (.200 is in .128–.255)</td><td><b>25</b></td><td class="good">★ WINNER</td></tr>
+      <tr><td class="mono">0.0.0.0/0 via 10.0.0.4</td><td>✓ (matches everything)</td><td>0</td><td></td></tr>
+    </table>
+    <div style="margin-top:6px">Decision: forward via <b>10.0.0.3</b> — 25 bits beat 24, 16 and 0.</div>
+  </div>
+  <div class="callout co-info"><div class="tag">Why LPM matters</div><div class="body">It enables <b>hierarchical routing</b>: an ISP carries one route <span class="k">10.0.0.0/8</span> for a million customers, while a customer with <span class="k">10.45.0.0/16</span> gets the more specific (winning) route. Specific overrides general — that's also how BGP hijacks work (Lecture 8).</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Default Route &amp; Static Routing</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">Default route — 0.0.0.0/0</div>Matches <b>every</b> destination (zero bits checked). The fallback when nothing else matches: "if in doubt, send here".</div>
+    <div class="card"><div class="c-title">Who needs a default?</div>Home device → home router → ISP → Tier-2 → Tier-1. But a <b>Tier-1 core router has NO default</b> — it carries the full Internet table (900K+ routes) because there is nobody "above" it to default to.</div>
+  </div>
+  <div class="code-head"><span>static routing commands</span><span>terminal</span></div>
+  <div class="code"><span class="fn">ip route add</span> <span class="num2">192.168.20.0/24</span> via <span class="num2">10.0.0.1</span>        <span class="ch"># specific route</span>
+<span class="fn">ip route add</span> default via <span class="num2">10.0.0.1</span>                     <span class="ch"># default route</span>
+<span class="fn">ip route del</span> <span class="num2">192.168.20.0/24</span> via <span class="num2">10.0.0.1</span>        <span class="ch"># remove</span>
+<span class="fn">ip route show</span>                                       <span class="ch"># verify</span>
+<span class="ch"># floating static (backup): high metric = used only if better route dies</span>
+<span class="fn">ip route add</span> <span class="num2">10.5.0.0/24</span> via <span class="num2">10.0.1.1</span> metric <span class="num2">200</span></div>
+  <table class="t">
+    <tr><th>Static routing</th><th>Assessment</th></tr>
+    <tr><td class="good">Good for</td><td>Small networks · stub networks (one way in/out) · security-critical fixed paths · default gateways</td></tr>
+    <tr><td class="bad">Fails at scale</td><td>Manual → error-prone · no failover (dead next hop = black hole) · one entry per destination doesn't scale</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Packet Forwarding — Hop by Hop</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="code" style="max-width:520px; margin-left:auto; margin-right:auto"><span class="out">At EVERY router, for EVERY packet:</span>
+<span class="num2">1</span>. Extract destination IP
+<span class="num2">2</span>. Search routing table — Longest Prefix Match
+<span class="num2">3</span>. Match? → forward to next hop via that interface
+<span class="num2">4</span>. No match &amp; no default? → <span class="kw">DROP</span> + ICMP "Destination Unreachable"</span></div>
+    <div class="fig-cap"><b>Figure 2.</b> The forwarding decision loop — millions of times per second.</div>
+  </div>
+  <div class="card acc">
+    <div class="c-title">Complete trace — Laptop 192.168.1.5 → Server 10.50.20.100</div>
+    <div class="flow" style="margin:6px 0"><span class="fc">Laptop</span><span class="fa">→</span><span class="fc">R1</span><span class="fa">→</span><span class="fc">R2</span><span class="fa">→</span><span class="fc">R3</span><span class="fa">→</span><span class="fc hot">Server</span></div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>#</th><th>Where</th><th>Decision (LPM)</th><th>Frame MACs</th></tr>
+      <tr><td>1</td><td>Laptop</td><td>10.50.20.100 ∉ 192.168.1.0/24 → send to gateway 192.168.1.1</td><td>Laptop → R1</td></tr>
+      <tr><td>2</td><td>R1</td><td>10.50.0.0/16 → next hop 10.0.0.2 via eth1</td><td>R1 → R2 <i>(rebuilt)</i></td></tr>
+      <tr><td>3</td><td>R2</td><td>10.50.0.0/16 → next hop 10.0.1.2 via eth1</td><td>R2 → R3 <i>(rebuilt)</i></td></tr>
+      <tr><td>4</td><td>R3</td><td>10.50.20.0/24 <b>directly connected</b> → ARP for .100 → deliver</td><td>R3 → Server <i>(rebuilt)</i></td></tr>
+      <tr><td>5</td><td>Server</td><td colspan="2">Packet received — IP src/dst unchanged the whole way ✓</td></tr>
+    </table>
+  </div>
+  <div class="callout co-exam"><div class="tag">Key idea</div><div class="body"><b>No router knows the full path.</b> Each knows only the <b>next hop</b> — yet the chain of local decisions carries the packet across the planet. That's the "hop-by-hop" principle (and why routing loops are so dangerous — next lecture).</div></div>
+  <h3>What changes at each hop?</h3>
+  <table class="t">
+    <tr><th>Header field</th><th>Changes?</th><th>Why</th></tr>
+    <tr><td>IP Source / Destination</td><td class="bad">No (unless NAT)</td><td>End-to-end identity</td></tr>
+    <tr><td><b>TTL</b></td><td class="good">Yes — −1 per router</td><td>Packet with TTL = 0 is dropped + ICMP Time Exceeded — <b>prevents infinite loops</b></td></tr>
+    <tr><td><b>Ethernet Src/Dst MAC</b></td><td class="good">Yes — rewritten</td><td>New frame per hop (L2 is local-only)</td></tr>
+  </table>
+  <div class="callout co-info"><div class="tag">TTL &amp; traceroute</div><div class="body">TTL starts at 64 (Linux/mac) or 128 (Windows). <b>traceroute exploits it:</b> send TTL=1 → router 1 drops &amp; complains (revealing itself); TTL=2 → router 2 complains; … until the destination answers. That's how Lecture 12 maps paths.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 7 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Routing</b> = build the table (control, slow); <b>forwarding</b> = per-packet lookup (data, fast).</div>
+    <div class="cheat-item"><b>Routing table</b>: dest prefix → next hop + interface (+ metric, source).</div>
+    <div class="cheat-item"><b>LPM</b>: longest matching prefix wins — /25 beats /24 beats /16 beats /0.</div>
+    <div class="cheat-item"><b>Default 0.0.0.0/0</b> matches everything; Tier-1 cores have none (full table).</div>
+    <div class="cheat-item"><b>Static</b>: <span class="mono">ip route add NET via NEXT_HOP</span>; simple, no failover; floating = backup metric.</div>
+    <div class="cheat-item"><b>Forwarding loop</b>: dest IP → LPM → next hop → new frame; no match → drop + ICMP Unreachable.</div>
+    <div class="cheat-item"><b>Per hop</b>: TTL−1, MACs rewritten, IPs unchanged.</div>
+    <div class="cheat-item"><b>traceroute</b> = increasing TTL + ICMP Time Exceeded replies.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Entries /8, /16, /24 and /0 all match destination 10.45.20.5. Which is used?<ul class="opts"><li>a) /0 — default is strongest</li><li>b) /8</li><li>c) /24 — most specific</li><li>d) load-balanced across all</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>A packet's TTL reaches 0 at a router. The router:<ul class="opts"><li>a) forwards it anyway</li><li>b) drops it and sends ICMP Time Exceeded</li><li>c) returns it to source</li><li>d) resets TTL to 64</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>Which command adds a default route via 10.0.0.1?<ul class="opts"><li>a) ip route add 0.0.0.0/0 via 10.0.0.1</li><li>b) ip default 10.0.0.1</li><li>c) route default gateway 10.0.0.1</li><li>d) ip gw 10.0.0.1</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>A packet crosses 5 routers. How many times is the Ethernet frame rebuilt?<ul class="opts"><li>a) 0</li><li>b) 1</li><li>c) 5</li><li>d) 4</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>Tier-1 core routers typically have:<ul class="opts"><li>a) many default routes</li><li>b) no default route — the full Internet table</li><li>c) only static routes</li><li>d) no routing table</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Differentiate routing and forwarding (plane, speed, frequency, intelligence).</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>Explain Longest Prefix Match with the 192.168.1.200 example from this lecture.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>What is a default route and why doesn't a Tier-1 router have one?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>State three fields of a routing table entry and their meanings.</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>Why does TTL exist? What does a router do when it hits zero, and which tool exploits this?</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Long</span>Trace a packet from 192.168.1.5 to 10.50.20.100 through R1, R2, R3 (Figure/trace in §5): at each hop give the LPM decision, the new MAC pair, and the TTL change.</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Compare static and dynamic routing: when is static appropriate? What are its two fatal weaknesses at scale, and what replaces it?</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Numerical</span>Routing table: 10.0.0.0/8 via A · 10.64.0.0/12 via B · 10.79.0.0/16 via C · 0.0.0.0/0 via D. For each destination — (i) 10.79.20.1 (ii) 10.80.1.1 (iii) 172.16.1.1 — state every matching entry and the chosen next hop.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>"Hop-by-hop routing means no single device knows the complete path." Explain with the signpost analogy, and connect it to why routing loops must be prevented.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> c — most specific wins (/24).</div>
+    <div class="a-item"><b>A2.</b> b — drop + ICMP Time Exceeded to the source.</div>
+    <div class="a-item"><b>A3.</b> a — or the equivalent "default via" form.</div>
+    <div class="a-item"><b>A4.</b> c — every hop builds a fresh frame (5 routers → 5 rebuilds across the 5 links; IPs unchanged).</div>
+    <div class="a-item"><b>A5.</b> b — nothing above them to default to; they hold ~900K+ specific routes.</div>
+    <div class="a-item"><b>A6.</b> Routing: control plane, slow, periodic, algorithms. Forwarding: data plane, fast, per packet, table lookup.</div>
+    <div class="a-item"><b>A7.</b> /25 (192.168.1.128/25) matches .200 with 25 bits → beats /24, /16 and default.</div>
+    <div class="a-item"><b>A8.</b> 0.0.0.0/0 = "send everything unmatched here". Tier-1 = top of hierarchy; must know all prefixes explicitly.</div>
+    <div class="a-item"><b>A9.</b> Destination prefix · next hop · interface (+ metric, source) — one line each.</div>
+    <div class="a-item"><b>A10.</b> Prevents infinite looping packets; TTL=0 → drop + ICMP Time Exceeded; traceroute uses increasing TTLs.</div>
+    <div class="a-item"><b>A13.</b> (i) 10.79.20.1 matches /8, /12 (10.64–79), /16 (10.79) and /0 → <b>C</b> (most specific). (ii) 10.80.1.1 matches /8 and /0 only (10.80 is outside 10.64–79) → <b>A</b>. (iii) 172.16.1.1 matches only /0 → <b>D</b>.</div>
+    <div class="a-item"><b>A11/A12/A14.</b> Reproduce the §5 trace table and the signpost analogy; static's weaknesses = manual scale + no failover → dynamic protocols (L8).</div>
+  </div>
+</div>
+
+</body>
+</html>

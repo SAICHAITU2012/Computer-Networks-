@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 12 — Network Troubleshooting</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#b91c1c; --acc-d:#7f1d1d; --acc-l:#faeceb; --acc-m:#e8c2c0; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">12</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Network<br>Troubleshooting</h1>
+    <div class="tagline">A systematic method plus the six tools of the trade: ping, traceroute, dig, ss, tcpdump and Wireshark — and how to read what they tell you.</div>
+    <div class="chips"><span class="chip">OSI Ladder Method</span><span class="chip">ping &amp; RTT stats</span><span class="chip">traceroute</span><span class="chip">nslookup · dig</span><span class="chip">netstat · ss</span><span class="chip">TCP States</span><span class="chip">tcpdump filters</span><span class="chip">Wireshark</span><span class="chip">Common Problems</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>Turn knowledge into diagnostic power: the bottom-up OSI checklist, reading ping statistics like a network engineer, tracing paths and latency jumps, DNS forensics with dig, socket states that expose application bugs, packet-level truth with tcpdump/Wireshark, and a fix-table for the seven problems you'll actually meet.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Commands · Outputs · Diagnoses · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Apply a <b>systematic bottom-up</b> troubleshooting methodology</li>
+    <li>Use <b>ping, traceroute, dig/nslookup, ss/netstat, tcpdump, Wireshark</b> correctly</li>
+    <li><b>Interpret outputs</b> — latency, loss, TTL, TCP states, retransmissions</li>
+    <li>Recognise and fix the <b>common networking problems</b></li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Troubleshooting</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Method</div><div class="mm-children"><div class="mm-child">climb the OSI ladder</div><div class="mm-child">L1 cable → L7 app</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Reachability</div><div class="mm-children"><div class="mm-child">ping — RTT, loss, TTL</div><div class="mm-child">traceroute — where it breaks</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Names</div><div class="mm-children"><div class="mm-child">dig +short / +trace</div><div class="mm-child">NXDOMAIN vs SERVFAIL</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Sockets</div><div class="mm-children"><div class="mm-child">ss -tulpn — who listens?</div><div class="mm-child">CLOSE_WAIT = app bug</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Packets</div><div class="mm-children"><div class="mm-child">tcpdump filters</div><div class="mm-child">Wireshark follow-stream</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>The Method — Climb the OSI Ladder</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="code" style="max-width:600px; margin-left:auto; margin-right:auto"><span class="out">L1 Physical    </span>cable in? Wi-Fi associated? LEDs on?
+<span class="out">L2 Data Link   </span>interface up? link light? switch port active?
+<span class="out">L3 Network     </span>IP configured? ping gateway? ping 8.8.8.8?
+<span class="out">L4 Transport   </span>port open? firewall blocking? service listening?
+<span class="out">L7 Application </span>service responding? config right? logs clean?</div>
+    <div class="fig-cap"><b>Figure 1.</b> Don't guess — climb. Each rung eliminates a whole class of causes.</div>
+  </div>
+  <div class="code-head"><span>the 6-command checklist</span><span>terminal</span></div>
+  <div class="code"><span class="num2">1</span> <span class="fn">ip addr</span>                     <span class="ch">— interface up? has IP?</span>
+<span class="num2">2</span> <span class="fn">ping</span> &lt;gateway&gt;             <span class="ch">— local network OK?</span>
+<span class="num2">3</span> <span class="fn">ping 8.8.8.8</span>              <span class="ch">— Internet routing OK?</span>
+<span class="num2">4</span> <span class="fn">ping</span> &lt;hostname&gt;           <span class="ch">— DNS OK?</span>
+<span class="num2">5</span> <span class="fn">ss -tulpn | grep</span> &lt;port&gt;   <span class="ch">— service listening?</span>
+<span class="num2">6</span> <span class="fn">curl</span> http://localhost:&lt;port&gt;  <span class="ch">— service responding?</span></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>ping — the Reachability Probe</h2><div class="rule"></div></div>
+  <div class="code-head"><span>ping essentials</span><span>terminal</span></div>
+  <div class="code"><span class="fn">ping</span> google.com             <span class="ch">— continuous (Ctrl+C stops)</span>
+<span class="fn">ping</span> -c 4 google.com        <span class="ch">— exactly 4 probes</span>
+<span class="fn">ping</span> -s 1000 google.com     <span class="ch">— 1000-byte packets (MTU tests)</span>
+<span class="ch"># Windows: -t continuous · -n 10 for ten</span></div>
+  <div class="code"><span class="out">64 bytes from 142.250.195.46: icmp_seq=1 ttl=115 time=6.82 ms</span>
+<span class="out">3 packets transmitted, 3 received, 0% packet loss
+rtt min/avg/max/mdev = 6.45/6.79/7.10/0.265 ms</span></div>
+  <table class="t small">
+    <tr><th>Field</th><th>Meaning</th><th>Field</th><th>Meaning</th></tr>
+    <tr><td class="mono">icmp_seq</td><td>probe number — <b>gaps = loss</b></td><td class="mono">ttl=115</td><td>reply TTL → hops ≈ start−received (128−115 = 13 hops — public servers start at 128, not 64)</td></tr>
+    <tr><td class="mono">time</td><td>round-trip time</td><td class="mono">mdev</td><td><b>jitter</b> — high = unstable link</td></tr>
+  </table>
+  <table class="t">
+    <tr><th>ping result</th><th>Likely diagnosis</th></tr>
+    <tr><td>Works</td><td class="good">L3 connectivity OK to that target</td></tr>
+    <tr><td>100% loss</td><td>host down, or <b>ICMP deliberately blocked</b> (try a port next!)</td></tr>
+    <tr><td>Intermittent loss</td><td>congestion · bad cable · Wi-Fi interference</td></tr>
+    <tr><td>High avg, low mdev</td><td>long distance / VPN — physics, not flakiness</td></tr>
+    <tr><td>High mdev</td><td>unstable, congested link</td></tr>
+    <tr><td>"Name not known"</td><td class="bad">DNS failure — not a routing problem!</td></tr>
+    <tr><td>"Destination Unreachable"</td><td>some router has no route to the target</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>traceroute — Where Does It Hurt?</h2><div class="rule"></div></div>
+  <p>Sends packets with <b>TTL = 1, 2, 3…</b> Each router that kills a packet replies ICMP Time Exceeded — revealing itself. (Windows: <span class="k">tracert</span>; better: <span class="k">mtr</span> = traceroute + continuous stats.)</p>
+  <div class="code"><span class="fn">traceroute</span> google.com &nbsp;&nbsp;·&nbsp;&nbsp; <span class="fn">traceroute -T -p 80</span> google.com  <span class="ch">(TCP, dodges ICMP blocks)</span></div>
+  <div class="code"><span class="out"> 1  192.168.1.1      1.0 ms   ← your gateway
+ 2  10.50.0.1        8.2 ms   ← ISP first hop
+ 3  * * *                     ← ICMP filtered (traffic still flows!)
+ 4  10.60.100.2     15.1 ms
+ 5  72.14.239.45    18.4 ms   ← Google peering
+ 6  142.250.195.46  19.9 ms   ← destination ✓</span></div>
+  <div class="callout co-exam"><div class="tag">Reading it</div><div class="body"><b>Latency jumps locate congestion:</b> hop4 at 200 ms after hop3 at 8 ms → the slow link is <i>at hop 4</i>. And <span class="mono">* * *</span> does <b>not</b> mean broken — many routers just rate-limit ICMP replies while happily forwarding your traffic.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>dig / nslookup — DNS Forensics</h2><div class="rule"></div></div>
+  <div class="code"><span class="fn">nslookup</span> google.com · <span class="fn">nslookup</span> google.com 8.8.8.8     <span class="ch">— quick checks</span>
+<span class="fn">dig</span> google.com A · AAAA · MX · NS · TXT                 <span class="ch">— record types</span>
+<span class="fn">dig</span> +short google.com       <span class="ch">— just the answer</span>
+<span class="fn">dig</span> +trace google.com       <span class="ch">— root→TLD→auth walk, live</span>
+<span class="fn">dig</span> -x 142.250.195.46       <span class="ch">— reverse PTR</span></div>
+  <table class="t">
+    <tr><th>Symptom</th><th>Diagnosis</th></tr>
+    <tr><td class="mono">NXDOMAIN</td><td>domain doesn't exist — check spelling (name vs server problem)</td></tr>
+    <tr><td class="mono">SERVFAIL</td><td>DNS server choked — retry with 8.8.8.8 / 1.1.1.1</td></tr>
+    <tr><td>Works via 8.8.8.8, not via ISP DNS</td><td>ISP resolver broken → change DNS config</td></tr>
+    <tr><td>Wrong IP returned</td><td>stale cache or DNS poisoning — flush and re-test</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>ss / netstat — Who Is Listening?</h2><div class="rule"></div></div>
+  <div class="code-head"><span>ss — the modern netstat</span><span>terminal</span></div>
+  <div class="code"><span class="fn">ss -tulpn</span>            <span class="ch">— TCP+UDP, listening, processes, numeric — THE command</span>
+<span class="fn">ss -t state established</span>    <span class="ch">— active connections only</span>
+<span class="fn">ss -t dst :443</span>             <span class="ch">— filter by destination port</span></div>
+  <div class="code"><span class="out">Netid State  Recv-Q Send-Q  Local Address:Port   Peer Address:Port   Process
+tcp   LISTEN 0      128     0.0.0.0:22           0.0.0.0:*           sshd
+tcp   LISTEN 0      10      0.0.0.0:8080         0.0.0.0:*           python3
+tcp   ESTAB  0      0       192.168.1.5:52341    142.250.195.46:80   curl
+udp   UNCONN 0      0       0.0.0.0:53           0.0.0.0:*           dnsmasq</span></div>
+  <div class="grid2">
+    <div class="card"><div class="c-title">Key fields</div><span class="mono">0.0.0.0:port</span> = listening on ALL interfaces · <span class="mono">127.0.0.1:port</span> = <b>localhost only — the #1 "works locally, dead externally" cause!</b> · <span class="mono">Recv-Q &gt; 0</span> = app not reading its data.</div>
+    <div class="card acc"><div class="c-title">TCP states that tell stories</div><b>CLOSE_WAIT pile-up</b> → app never calls close() (bug!). <b>Many TIME_WAIT</b> → connection churn; enable keep-alive. <b>Stuck SYN_SENT</b> → destination down / firewall dropping SYN.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>tcpdump — Ground-Truth Packets</h2><div class="rule"></div></div>
+  <div class="code-head"><span>capture + filters (BPF syntax)</span><span>terminal</span></div>
+  <div class="code"><span class="kw">sudo tcpdump</span> -i eth0 -n             <span class="ch">— interface, no name lookups</span>
+<span class="kw">sudo tcpdump</span> -w cap.pcap            <span class="ch">— save for Wireshark</span>
+<span class="kw">sudo tcpdump</span> host 8.8.8.8           <span class="ch">— by host</span>
+<span class="kw">sudo tcpdump</span> port 443               <span class="ch">— by port</span>
+<span class="kw">sudo tcpdump</span> icmp · udp · tcp       <span class="ch">— by protocol</span>
+<span class="kw">sudo tcpdump</span> host 8.8.8.8 and port 80   <span class="ch">— combined</span>
+<span class="kw">sudo tcpdump -A -n port 80</span>          <span class="ch">— ASCII bodies (plain HTTP!)</span>
+<span class="kw">sudo tcpdump</span> <span class="str">'tcp[tcpflags] &amp; tcp-syn != 0'</span>   <span class="ch">— watch handshakes</span></div>
+  <div class="code"><span class="out">12:34:56.123 IP 192.168.1.5.52341 &gt; 142.250.195.46.80: Flags [S], seq 1001</span>
+<span class="ch">                └─ src ip.port ─┘  └── dst ip.port ──┘  └ flag ┘</span>
+<span class="out">[S]=SYN  [S.]=SYN-ACK  [.]=ACK  [P.]=data push  [F.]=FIN  [R]=reset</span></div>
+  <div class="callout co-info"><div class="tag">Scenarios</div><div class="body">Is my server receiving connections? <span class="k">tcpdump -n port 8080</span> · Is DNS alive? <span class="k">tcpdump -n port 53</span> · Seeing <span class="mono">[R]</span> where you expected <span class="mono">[S.]</span>? — nothing is listening on that port.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Wireshark — the Microscope</h2><div class="rule"></div></div>
+  <table class="t small">
+    <tr><th>Feature</th><th>How</th><th>Why it's magic</th></tr>
+    <tr><td><b>Display filters</b></td><td class="mono">ip.addr==8.8.8.8 · tcp.port==80 · dns · http</td><td>slice captures any way you like, post-capture</td></tr>
+    <tr><td><b>Follow TCP Stream</b></td><td>right-click → Follow → TCP Stream</td><td>rebuilds the entire conversation (readable HTTP!)</td></tr>
+    <tr><td><b>Expert info / retransmissions</b></td><td class="mono">tcp.analysis.retransmission</td><td>packet loss, out of order — colour-coded</td></tr>
+    <tr><td><b>Statistics</b></td><td>Protocol Hierarchy · IO Graph</td><td>what protocols dominate? bandwidth over time?</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">8</div><h2>Common Problems → Tool → Fix</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Problem</th><th>Tool</th><th>Likely cause</th><th>Fix</th></tr>
+    <tr><td>Can't reach Internet</td><td class="mono">ping 8.8.8.8</td><td>ISP outage / router WAN down</td><td>check router, call ISP</td></tr>
+    <tr><td>DNS broken</td><td class="mono">dig, nslookup</td><td>ISP resolver dead</td><td>switch to 8.8.8.8 / 1.1.1.1</td></tr>
+    <tr><td>Port unreachable</td><td class="mono">ss -tulpn</td><td>service bound to 127.0.0.1, or not running</td><td>bind 0.0.0.0 / start service</td></tr>
+    <tr><td>Random disconnects</td><td class="mono">mtr, ping -c 100</td><td>packet loss mid-path</td><td>cables / ISP complaint</td></tr>
+    <tr><td>Slow website</td><td class="mono">dig +trace, Wireshark</td><td>high TTFB — server slow</td><td>DB queries, caching</td></tr>
+    <tr><td>Many CLOSE_WAIT</td><td class="mono">ss</td><td>app never closes sockets</td><td>fix close() in code</td></tr>
+    <tr><td>Works local, not external</td><td class="mono">ss, firewall</td><td>bind 127.0.0.1 or firewall rule</td><td>bind 0.0.0.0 / open port</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><i>"ping 8.8.8.8 works but ping google.com fails."</i> → <b>DNS</b> (routing is fine — the IP answers; the name doesn't resolve). The single most-asked troubleshooting scenario.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 12 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Method</b>: climb OSI L1→L7 — never guess. ip addr → ping GW → ping 8.8.8.8 → ping name → ss → curl.</div>
+    <div class="cheat-item"><b>ping</b>: icmp_seq gaps = loss · mdev = jitter · TTL hints hops · "name not known" = DNS.</div>
+    <div class="cheat-item"><b>traceroute</b>: TTL-escalation + ICMP Time Exceeded; latency jump = problem hop; * * * ≠ broken.</div>
+    <div class="cheat-item"><b>dig</b>: +short · +trace · -x reverse; NXDOMAIN = bad name, SERVFAIL = server issue.</div>
+    <div class="cheat-item"><b>ss -tulpn</b>: who listens; 127.0.0.1 bind = local-only trap; Recv-Q stuck = app not reading.</div>
+    <div class="cheat-item"><b>States</b>: CLOSE_WAIT storm = missing close(); SYN_SENT stuck = unreachable; TIME_WAIT flood = churn.</div>
+    <div class="cheat-item"><b>tcpdump</b>: host/port/proto filters; -A for HTTP bodies; [S][S.][.][P.][F.][R] flags.</div>
+    <div class="cheat-item"><b>Wireshark</b>: display filters, Follow TCP Stream, retransmission analysis, IO graphs.</div>
+    <div class="cheat-item"><b>Golden Q</b>: IP pings but name doesn't → DNS. Local works, external doesn't → bind/firewall.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>ping 8.8.8.8 succeeds; ping google.com fails. Cause?<ul class="opts"><li>a) routing broken</li><li>b) DNS broken</li><li>c) gateway down</li><li>d) firewall</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>In traceroute, "* * *" at hop 4 (hop 5 answers) means:<ul class="opts"><li>a) hop 4 is down</li><li>b) hop 4 filtered/rate-limited ICMP — traffic still passes</li><li>c) packet loss there</li><li>d) DNS failure</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>ss shows your service on 127.0.0.1:8080. Externally it's:<ul class="opts"><li>a) reachable</li><li>b) unreachable — localhost bind</li><li>c) reachable via IPv6</li><li>d) cached</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>Hundreds of CLOSE_WAIT sockets indicate:<ul class="opts"><li>a) healthy server</li><li>b) app not closing sockets</li><li>c) SYN flood</li><li>d) DNS cache miss</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>dig returns NXDOMAIN. Meaning?<ul class="opts"><li>a) server error</li><li>b) domain doesn't exist</li><li>c) timeout</li><li>d) no IPv6</li></ul></div>
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">MCQ</span>Which tcpdump captures only DNS without name resolution?<ul class="opts"><li>a) tcpdump port 53 -n</li><li>b) tcpdump udp -v</li><li>c) tcpdump host dns</li><li>d) tcpdump -A port 80</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>State the OSI-ladder methodology and the six-command checklist in order.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Explain how traceroute exploits TTL. Why does it sometimes show * * *?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>How do you find the number of hops to a host from ping output alone?</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>What does Recv-Q &gt; 0 mean? What usually causes it?</div>
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Short</span>Differentiate capture filters and display filters (which tools use which?).</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Short</span>A traceroute shows hop 3 at 8 ms and hop 4 at 200 ms. Where is the congestion and why?</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Diagnose step-by-step: "my website is down" — assume nothing, name the exact command at each ladder rung and what each outcome would prove.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>Explain the TCP state machine story: LISTEN → SYN_SENT → ESTABLISHED → CLOSE_WAIT → TIME_WAIT, and what each stuck state diagnoses in a real application.</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Code</span>Write tcpdump commands: (a) capture DNS to a file without lookups, (b) watch SYN packets to port 80, (c) view plaintext HTTP bodies, (d) capture traffic between two hosts.</div>
+    <div class="q"><span class="q-no">Q16.</span><span class="q-tag">Long</span>Match five symptoms from the §8 table to tool, cause and fix — and explain why ICMP blocking can make large transfers hang (connect to PMTUD from Lecture 2).</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — IP works, name resolution doesn't.</div>
+    <div class="a-item"><b>A2.</b> b — routers may rate-limit ICMP; forwarding continues.</div>
+    <div class="a-item"><b>A3.</b> b — loopback bind accepts local connections only.</div>
+    <div class="a-item"><b>A4.</b> b — remote closed, app never called close().</div>
+    <div class="a-item"><b>A5.</b> b — authoritative "no such name".</div>
+    <div class="a-item"><b>A6.</b> a — port 53 = DNS; -n disables reverse lookups.</div>
+    <div class="a-item"><b>A7.</b> L1→L7 ladder; ip addr → ping GW → ping 8.8.8.8 → ping name → ss -tulpn → curl localhost:port.</div>
+    <div class="a-item"><b>A8.</b> TTL=1,2,3… each zeroing router returns Time Exceeded; * * * = filtered/rate-limited ICMP, not failure.</div>
+    <div class="a-item"><b>A9.</b> hops ≈ sending TTL (64 or 128) − received TTL (e.g. 64−57 = 7).</div>
+    <div class="a-item"><b>A10.</b> Data arrived but the application hasn't read it — slow/hung app, or nowhere reading at all.</div>
+    <div class="a-item"><b>A11.</b> Capture filters (tcpdump/BPF) limit what's recorded pre-capture; display filters (Wireshark) slice post-capture.</div>
+    <div class="a-item"><b>A12.</b> At hop 4 — the jump appears crossing INTO hop 4 (its incoming link), since hop 3 responded quickly.</div>
+    <div class="a-item"><b>A13–A16.</b> Ladder + checklist, state stories from §5, the four commands from §6, and PMTUD: blocked "Fragmentation Needed" ICMP = sender never learns to shrink packets.</div>
+  </div>
+  <div class="card acc" style="margin-top:14px;">
+    <div class="c-title">Wrap-Up — carry these into Lecture 13</div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="callout co-info"><span class="tag">The ladder</span><div class="body">Debug <b>bottom-up</b>: ip addr → ping GW → ping 8.8.8.8 → dig → curl/port. Each rung isolates one layer's failure.</div></div>
+      <div class="callout co-info"><span class="tag">States tell stories</span><div class="body">SYN_SENT = no reply; CLOSE_WAIT = you forgot close(); TIME_WAIT = normal 2×MSL cool-down, not a leak.</div></div>
+      <div class="callout co-warn"><span class="tag">Capture smart</span><div class="body">tcpdump -n (no lookups) to record; Wireshark display filters to analyse. BPF limits what's captured, filters slice what's shown.</div></div>
+      <div class="callout co-ok"><span class="tag">Silent failures</span><div class="body">Blocked ICMP = PMTUD death: big uploads hang, small ones pass. traceroute's <b>* * *</b> = filtered ICMP, not always a failure.</div></div>
+    </div>
+    <div class="callout co-exam" style="margin-top:9px;"><span class="tag">Next</span><div class="body"><b>Lecture 13 — The Complete Internet Journey:</b> every layer, one packet — the full story of what happens when you press Enter, assembled from all twelve lectures.</div></div>
+  </div>
+</div>
+
+</body>
+</html>

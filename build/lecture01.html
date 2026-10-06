@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 1 — Introduction to Computer Networks</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>
+:root { --acc:#4f46e5; --acc-d:#3b3878; --acc-l:#f0eefa; --acc-m:#d8d4ef; }
+</style>
+</head>
+<body>
+
+<!-- ================= COVER ================= -->
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">01</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Introduction to<br>Computer Networks</h1>
+    <div class="tagline">Why networks exist, how the Internet is built, and the vocabulary — delay, throughput, switching, devices &amp; layers — that every later lecture builds on.</div>
+    <div class="chips">
+      <span class="chip">Why Networks</span><span class="chip">LAN · MAN · WAN</span><span class="chip">Internet Architecture</span><span class="chip">Edge vs Core</span><span class="chip">Packet vs Circuit Switching</span><span class="chip">Delay &amp; Latency</span><span class="chip">Throughput &amp; Bottlenecks</span><span class="chip">Hubs · Switches · Routers</span><span class="chip">OSI vs TCP/IP</span>
+    </div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>The complete ground floor of networking: what a network is made of, how the global Internet grew out of small local networks, how data moves (switching), how we measure "speed" (delay, latency, throughput), which devices do which job, and the two layer models used to talk about it all — with worked numericals and exam questions.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Numericals · Exam Prep</span></div>
+  </div>
+</div>
+
+<!-- ================= OBJECTIVES + MINDMAP ================= -->
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Explain <b>why networks exist</b> and identify their building blocks (nodes &amp; links)</li>
+    <li>Classify networks by scale: <b>PAN, LAN, MAN, WAN</b> — with real examples</li>
+    <li>Describe the Internet as a <b>"network of networks"</b> organised in ISP tiers</li>
+    <li>Separate the <b>network edge</b> from the <b>network core</b> and name what lives in each</li>
+    <li>Contrast <b>circuit switching</b> and <b>packet switching</b>, and argue why the Internet chose packets</li>
+    <li>Compute <b>nodal delay</b> (processing, queueing, transmission, propagation) and <b>throughput</b> from formulas</li>
+    <li>Pick the right device (<b>hub, switch, router, modem</b>) for a given job</li>
+    <li>Read the <b>OSI (7-layer)</b> and <b>TCP/IP (4/5-layer)</b> models at a bird's-eye level</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Introduction to Computer Networks</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Why Networks?</div><div class="mm-children"><div class="mm-child">Communication &amp; resource sharing</div><div class="mm-child">Nodes + Links</div><div class="mm-child">Data exchange everywhere</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Network Types</div><div class="mm-children"><div class="mm-child">PAN ~10 m</div><div class="mm-child">LAN — room / building</div><div class="mm-child">MAN — city</div><div class="mm-child">WAN — country / world</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Architecture</div><div class="mm-children"><div class="mm-child">Edge: end devices</div><div class="mm-child">Access: your connection</div><div class="mm-child">Core: ISP mesh of routers</div><div class="mm-child">Tier-1 → Tier-2 → Tier-3</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Switching</div><div class="mm-children"><div class="mm-child">Circuit: dedicated path</div><div class="mm-child">Packet: independent hops</div><div class="mm-child">Store-and-forward</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Performance</div><div class="mm-children"><div class="mm-child">4 delays + formulas</div><div class="mm-child">Latency &amp; RTT</div><div class="mm-child">Throughput = min link</div><div class="mm-child">Bottleneck link</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Devices &amp; Layers</div><div class="mm-children"><div class="mm-child">Hub · Switch · Router · Modem</div><div class="mm-child">OSI 7 layers</div><div class="mm-child">TCP/IP 4 layers</div></div></div>
+  </div>
+</div>
+
+<!-- ================= 1. WHY ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Why Computer Networks?</h2><div class="rule"></div></div>
+  <p>A <b>computer network</b> is a set of devices (called <b>nodes</b>) connected by communication channels (called <b>links</b>) that exchange data. That's the entire definition — everything else in this course is detail on top of it.</p>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">Nodes — the devices</div>Computers, laptops, phones, servers, printers, and the networking boxes themselves: <b>routers, switches, hubs</b>. Any device that can send, receive, or forward data.</div>
+    <div class="card acc"><div class="c-title">Links — the connections</div>Wired (copper <b>twisted pair</b>, fiber optic) or wireless (Wi-Fi radio, cellular, satellite). A link carries signals that encode bits.</div>
+  </div>
+  <h3>Why do we need them?</h3>
+  <ul class="avoid">
+    <li><b>Communication</b> — humans and programs talking across a room or across the planet (chat, email, calls, web).</li>
+    <li><b>Resource sharing</b> — one printer for an office, one file server for a team, one database for a million users.</li>
+    <li><b>Scale</b> — work distributed across machines: cloud computing, search engines, video streaming at planetary scale.</li>
+    <li><b>Cost &amp; reliability</b> — shared infrastructure and replicated systems beat every user owning everything.</li>
+  </ul>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body">The classic mental model: the <b>postal system</b>. A letter (data) is placed in an envelope (packet) with an address (destination IP), handed to a post office (router), and forwarded office-by-office until it reaches the mailbox (destination device). No single postal worker knows the whole journey — each just knows the <b>next office</b>. This is exactly how Internet routing works (Lecture 7).</div></div>
+  <div class="callout co-info"><div class="tag">Big Picture</div><div class="body">Everything you use daily — WhatsApp, UPI payments, YouTube, Instagram, exam results websites — is a program on one machine talking to programs on other machines through this stack of ideas. Master these 13 lectures and you can explain <i>every step</i> of what happens when you type a URL (Lecture 13 does exactly that).</div></div>
+</div>
+
+<!-- ================= 2. TYPES ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>Types of Networks — LAN, MAN, WAN</h2><div class="rule"></div></div>
+  <p>Networks are classified by <b>geographic scale</b>. The scale decides the technology, ownership, speed and cost.</p>
+  <table class="t">
+    <tr><th>Type</th><th>Full Name</th><th>Coverage</th><th>Typical Owner</th><th>Speed / Latency</th><th>Examples</th></tr>
+    <tr><td><b>PAN</b></td><td>Personal Area Network</td><td>~10 metres</td><td>You</td><td>Fast, tiny range</td><td>Bluetooth earbuds, phone hotspot, smartwatch</td></tr>
+    <tr><td><b>LAN</b></td><td>Local Area Network</td><td>Room / building / campus</td><td>One organisation</td><td>High speed (100 Mbps–10 Gbps), very low latency</td><td>Home Wi-Fi network, computer lab, office network</td></tr>
+    <tr><td><b>MAN</b></td><td>Metropolitan Area Network</td><td>A city</td><td>ISP / large org</td><td>Moderate</td><td>Cable TV network, city-wide ISP backbone, metro college campuses joined</td></tr>
+    <tr><td><b>WAN</b></td><td>Wide Area Network</td><td>Country / continent / world</td><td>Telecom companies (ISPs)</td><td>Varies; long distances → higher latency</td><td>The Internet backbone, a bank's country-wide ATM network</td></tr>
+  </table>
+  <div class="fig">
+    <svg viewBox="0 0 660 118" width="100%">
+      <defs><marker id="ar" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#4f46e5"/></marker></defs>
+      <!-- scale bar -->
+      <line x1="20" y1="96" x2="640" y2="96" stroke="#d8d4ef" stroke-width="3" marker-end="url(#ar)"/>
+      <text x="20" y="112" class="svg-t" font-size="9.5" fill="#64748b">10 m</text>
+      <text x="330" y="112" class="svg-t" font-size="9.5" fill="#64748b" text-anchor="middle">scale of coverage →</text>
+      <text x="600" y="112" class="svg-t" font-size="9.5" fill="#64748b" text-anchor="end">world-wide</text>
+      <!-- boxes -->
+      <g>
+        <rect x="20"  y="18" width="120" height="56" rx="9" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.6"/>
+        <text x="80"  y="42" class="svg-t" font-size="13" font-weight="800" fill="#3b3878" text-anchor="middle">PAN</text>
+        <text x="80"  y="57" class="svg-t" font-size="9"  fill="#334155" text-anchor="middle">Bluetooth · hotspot</text>
+        <rect x="170" y="18" width="120" height="56" rx="9" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.6"/>
+        <text x="230" y="42" class="svg-t" font-size="13" font-weight="800" fill="#3b3878" text-anchor="middle">LAN</text>
+        <text x="230" y="57" class="svg-t" font-size="9"  fill="#334155" text-anchor="middle">home · office · lab</text>
+        <rect x="320" y="18" width="120" height="56" rx="9" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.6"/>
+        <text x="380" y="42" class="svg-t" font-size="13" font-weight="800" fill="#3b3878" text-anchor="middle">MAN</text>
+        <text x="380" y="57" class="svg-t" font-size="9"  fill="#334155" text-anchor="middle">one city</text>
+        <rect x="470" y="18" width="170" height="56" rx="9" fill="#4f46e5"/>
+        <text x="555" y="42" class="svg-t" font-size="13" font-weight="800" fill="#ffffff" text-anchor="middle">WAN</text>
+        <text x="555" y="57" class="svg-t" font-size="9"  fill="#e0e7ff" text-anchor="middle">countries · the Internet</text>
+      </g>
+    </svg>
+    <div class="fig-cap"><b>Figure 1.</b> Networks grow from personal to planetary — bigger scale means more owners, more hops, more latency.</div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body">A favourite short-answer: <i>"Differentiate LAN and WAN."</i> Key points: LAN = small area, privately owned, high speed, low latency; WAN = huge area, owned by telecom providers (leased links), moderate speed, higher latency and cost. Give one example of each.</div></div>
+  <div class="callout co-info"><div class="tag">Note</div><div class="body"><b>The Internet is not one WAN</b> — it is millions of LANs and WANs interconnected: a <b>network of networks</b>. A <b>VPN</b> (Virtual Private Network) is a secure tunnel built <i>on top of</i> the Internet to make a remote machine behave as if it is on your LAN.</div></div>
+</div>
+
+<!-- ================= 3. INTERNET ARCHITECTURE ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Internet Architecture — the Network of Networks</h2><div class="rule"></div></div>
+  <p>No single company owns the Internet. It grew by connecting smaller networks (ISPs) into a loose global hierarchy:</p>
+  <div class="fig">
+    <svg viewBox="0 0 680 240" width="100%">
+      <!-- Tier 1 -->
+      <g>
+        <rect x="225" y="8" width="230" height="44" rx="9" fill="#3b3878"/>
+        <text x="340" y="26" class="svg-t" font-size="11.5" font-weight="800" fill="#fff" text-anchor="middle">TIER-1 ISPs (global backbone)</text>
+        <text x="340" y="41" class="svg-t" font-size="8.6" fill="#d8d4ef" text-anchor="middle">Tata · Jio · Airtel · AT&amp;T · Lumen · NTT</text>
+      </g>
+      <line x1="300" y1="52" x2="150" y2="88" stroke="#818cf8" stroke-width="2"/>
+      <line x1="380" y1="52" x2="530" y2="88" stroke="#818cf8" stroke-width="2"/>
+      <!-- Tier 2 -->
+      <g>
+        <rect x="60" y="88" width="180" height="44" rx="9" fill="#4f46e5"/>
+        <text x="150" y="106" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">TIER-2 (regional / national ISPs)</text>
+        <text x="150" y="121" class="svg-t" font-size="8.8" fill="#e0e7ff" text-anchor="middle">state-wide providers · big colleges</text>
+        <rect x="440" y="88" width="180" height="44" rx="9" fill="#4f46e5"/>
+        <text x="530" y="106" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">TIER-2 (regional / national ISPs)</text>
+        <text x="530" y="121" class="svg-t" font-size="8.8" fill="#e0e7ff" text-anchor="middle">content providers (Google, Netflix)</text>
+      </g>
+      <line x1="150" y1="132" x2="110" y2="168" stroke="#818cf8" stroke-width="2"/>
+      <line x1="150" y1="132" x2="230" y2="168" stroke="#818cf8" stroke-width="2"/>
+      <line x1="530" y1="132" x2="560" y2="168" stroke="#818cf8" stroke-width="2"/>
+      <!-- Tier 3 access ISPs -->
+      <g>
+        <rect x="55"  y="168" width="115" height="40" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+        <text x="112" y="186" class="svg-t" font-size="9.6" font-weight="700" fill="#3b3878" text-anchor="middle">Local ISP / Jio Fiber</text>
+        <text x="112" y="199" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">your broadband</text>
+        <rect x="195" y="168" width="115" height="40" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+        <text x="252" y="186" class="svg-t" font-size="9.6" font-weight="700" fill="#3b3878" text-anchor="middle">Campus network</text>
+        <text x="252" y="199" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">college LANs</text>
+        <rect x="500" y="168" width="115" height="40" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+        <text x="557" y="186" class="svg-t" font-size="9.6" font-weight="700" fill="#3b3878" text-anchor="middle">Mobile networks</text>
+        <text x="557" y="199" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">4G / 5G towers</text>
+      </g>
+      <g stroke="#818cf8" stroke-width="1.6">
+        <line x1="112" y1="208" x2="112" y2="228"/><line x1="252" y1="208" x2="252" y2="228"/><line x1="557" y1="208" x2="557" y2="228"/>
+      </g>
+      <g fill="#4f46e5">
+        <circle cx="100" cy="233" r="4.5"/><circle cx="118" cy="233" r="4.5"/><circle cx="136" cy="233" r="4.5"/>
+        <circle cx="240" cy="233" r="4.5"/><circle cx="258" cy="233" r="4.5"/><circle cx="276" cy="233" r="4.5"/>
+        <circle cx="545" cy="233" r="4.5"/><circle cx="563" cy="233" r="4.5"/><circle cx="581" cy="233" r="4.5"/>
+      </g>
+      <g fill="#94a3b8" font-size="8.4" class="svg-t">
+        <text x="152" y="236">your home devices</text><text x="292" y="236">lab PCs &amp; phones</text><text x="597" y="236">your phones</text>
+      </g>
+      <text x="660" y="120" class="svg-t" font-size="8.6" fill="#64748b" text-anchor="end" transform="rotate(90 660 120)"></text>
+    </svg>
+    <div class="fig-cap"><b>Figure 2.</b> The Internet hierarchy: Tier-1 carriers form the core; regional and local ISPs bring access networks to your device.</div>
+  </div>
+  <ul>
+    <li><b>Tier-1 ISPs</b> own long-distance fiber backbones and peer with each other as equals — they never pay anyone for transit.</li>
+    <li><b>Tier-2 / regional ISPs</b> buy connectivity from Tier-1s and sell to smaller networks.</li>
+    <li><b>Access networks (Tier-3)</b> — local ISPs, mobile towers, campus networks — connect the <i>last metres</i> to your device.</li>
+    <li><b>Content providers</b> (Google, Netflix, Cloudflare) run their own global networks and data centers, connecting into this hierarchy at many points (and via CDNs — Lecture 13).</li>
+  </ul>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><i>"What is meant by the Internet being a network of networks?"</i> — Answer shape: end systems connect into access ISPs (LAN, then ISP); access ISPs connect into regional ISPs; regional into Tier-1 backbone ISPs; smaller networks at each level are themselves networks of routers and links. Nobody owns the whole; interoperability comes from shared protocols (TCP/IP).</div></div>
+</div>
+
+<!-- ================= 4. EDGE VS CORE ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Network Edge vs Network Core</h2><div class="rule"></div></div>
+  <div class="fig">
+    <svg viewBox="0 0 680 200" width="100%">
+      <!-- edge zone -->
+      <rect x="10" y="14" width="215" height="172" rx="11" fill="#f0eefa" stroke="#d8d4ef" stroke-width="1.5"/>
+      <text x="117" y="34" class="svg-t" font-size="11.5" font-weight="800" fill="#3b3878" text-anchor="middle">NETWORK EDGE</text>
+      <g>
+        <rect x="28" y="48" width="60" height="34" rx="6" fill="#fff" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="58" y="69" class="svg-t" font-size="8.8" fill="#334155" text-anchor="middle">Laptop</text>
+        <rect x="100" y="48" width="60" height="34" rx="6" fill="#fff" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="130" y="69" class="svg-t" font-size="8.8" fill="#334155" text-anchor="middle">Phone</text>
+        <rect x="172" y="48" width="40" height="34" rx="6" fill="#fff" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="192" y="69" class="svg-t" font-size="8.8" fill="#334155" text-anchor="middle">TV</text>
+      </g>
+      <text x="117" y="106" class="svg-t" font-size="8.8" fill="#475569" text-anchor="middle">end systems · hosts · servers</text>
+      <text x="117" y="119" class="svg-t" font-size="8.8" fill="#475569" text-anchor="middle">run your apps (browser, games)</text>
+      <text x="117" y="146" class="svg-t" font-size="9" font-weight="700" fill="#3b3878" text-anchor="middle">ACCESS NETWORK</text>
+      <text x="117" y="159" class="svg-t" font-size="8.6" fill="#475569" text-anchor="middle">Wi-Fi · fiber (FTTH) · DSL · 4G/5G</text>
+      <text x="117" y="172" class="svg-t" font-size="8.6" fill="#475569" text-anchor="middle">the "last mile" to your door</text>
+      <!-- access link -->
+      <line x1="228" y1="100" x2="288" y2="100" stroke="#4f46e5" stroke-width="3.5"/>
+      <text x="258" y="92" class="svg-t" font-size="8.6" fill="#4f46e5" text-anchor="middle" font-weight="700">access link</text>
+      <!-- core zone -->
+      <rect x="292" y="14" width="378" height="172" rx="11" fill="#f8fafc" stroke="#e2e8f0" stroke-width="1.5"/>
+      <text x="481" y="34" class="svg-t" font-size="11.5" font-weight="800" fill="#3b3878" text-anchor="middle">NETWORK CORE — mesh of routers</text>
+      <g fill="#4f46e5">
+        <circle cx="380" cy="72" r="13"/><circle cx="480" cy="58" r="13"/><circle cx="580" cy="72" r="13"/>
+        <circle cx="350" cy="140" r="13"/><circle cx="470" cy="146" r="13"/><circle cx="600" cy="140" r="13"/>
+      </g>
+      <g stroke="#818cf8" stroke-width="1.8">
+        <line x1="391" y1="66" x2="469" y2="60"/><line x1="492" y1="62" x2="569" y2="69"/>
+        <line x1="380" y1="85" x2="355" y2="128"/><line x1="480" y1="71" x2="470" y2="133"/>
+        <line x1="585" y1="83" x2="596" y2="127"/><line x1="363" y1="143" x2="457" y2="146"/>
+        <line x1="483" y1="144" x2="587" y2="143"/><line x1="352" y1="130" x2="288" y2="106"/>
+      </g>
+      <g fill="#fff" font-size="9" font-weight="800" class="svg-t" text-anchor="middle">
+        <text x="380" y="76">R</text><text x="480" y="62">R</text><text x="580" y="76">R</text>
+        <text x="350" y="144">R</text><text x="470" y="150">R</text><text x="600" y="144">R</text>
+      </g>
+      <text x="481" y="178" class="svg-t" font-size="8.8" fill="#475569" text-anchor="middle">forwards packets hop-by-hop · no dedicated path · run by ISPs</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 3.</b> Edge devices reach the core through an access link; the core is a cooperating mesh of routers running packet switching.</div>
+  </div>
+  <div class="grid2">
+    <div class="card"><div class="c-title">Network Edge</div>End systems: PCs, phones, servers, IoT devices. <b>Hosts = clients</b> (requesters: your browser) <b>and servers</b> (responders: Google's machines). Edge devices run applications.</div>
+    <div class="card"><div class="c-title">Network Core</div>A mesh of interconnected <b>routers</b>. Its only job: <b>move data</b> — millions of packets per second, from any edge to any other edge. Contains no applications; pure forwarding machinery.</div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><i>"With a neat diagram, explain network edge and network core."</i> Draw Figure 3. Edge = hosts + access networks (Wi-Fi, FTTH, DSL, cellular). Core = router mesh doing packet switching. One line each on client/server and on why the core is shared.</div></div>
+</div>
+
+<!-- ================= 5. SWITCHING ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Circuit Switching vs Packet Switching</h2><div class="rule"></div></div>
+  <p>How does the core carry data for many conversations at once? Two historical answers:</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="c-title">Circuit Switching — the telephone way</div>
+      <b>Reserve a dedicated end-to-end path first</b> ( signalling sets up the "circuit"), then send at fixed rate. Links are divided into channels by <b>FDM</b> (frequency-division: each call gets a frequency band) or <b>TDM</b> (time-division: each call gets repeating time slots).
+      <ul>
+        <li class="good">Guaranteed constant rate &amp; latency — perfect for voice.</li>
+        <li class="bad">Wasteful: silent moments (pauses in a call) still hold the circuit.</li>
+        <li class="bad">Setup time before any data; fails if any intermediate trunk is busy.</li>
+      </ul>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Packet Switching — the Internet way</div>
+      <b>No reservation.</b> Data is chopped into <b>packets</b> (a few KB each) with headers; each router forwards them using <b>store-and-forward</b>: receive the whole packet, check it, send it on the next link. Packets from many users <b>statistically share</b> every link.
+      <ul>
+        <li class="good">Efficient sharing — idle capacity is instantly reused.</li>
+        <li class="good">Resilient: packets simply reroute around failures.</li>
+        <li class="bad">No guarantees — congestion causes <b>queueing delay and loss</b>.</li>
+      </ul>
+    </div>
+  </div>
+  <div class="fig">
+    <svg viewBox="0 0 680 170" width="100%">
+      <!-- circuit -->
+      <text x="170" y="18" class="svg-t" font-size="11" font-weight="800" fill="#3b3878" text-anchor="middle">CIRCUIT SWITCHING</text>
+      <g>
+        <rect x="24" y="36" width="46" height="30" rx="6" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="47" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#334155">A</text>
+        <rect x="132" y="36" width="46" height="30" rx="6" fill="#4f46e5"/>
+        <text x="155" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#fff">switch</text>
+        <rect x="240" y="36" width="46" height="30" rx="6" fill="#4f46e5"/>
+        <text x="263" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#fff">switch</text>
+        <rect x="348" y="36" width="46" height="30" rx="6" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="371" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#334155">B</text>
+      </g>
+      <line x1="70" y1="44" x2="132" y2="44" stroke="#3b3878" stroke-width="4"/>
+      <line x1="178" y1="44" x2="240" y2="44" stroke="#3b3878" stroke-width="4"/>
+      <line x1="286" y1="44" x2="348" y2="44" stroke="#3b3878" stroke-width="4"/>
+      <text x="209" y="30" class="svg-t" font-size="8.6" fill="#3b3878" text-anchor="middle" font-weight="700">reserved path for A↔B (whole journey)</text>
+      <line x1="70" y1="60" x2="132" y2="60" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="4 3"/>
+      <line x1="178" y1="60" x2="240" y2="60" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="4 3"/>
+      <line x1="286" y1="60" x2="348" y2="60" stroke="#cbd5e1" stroke-width="3" stroke-dasharray="4 3"/>
+      <text x="209" y="82" class="svg-t" font-size="8.4" fill="#94a3b8" text-anchor="middle">other users wait — capacity is partitioned</text>
+      <!-- packet -->
+      <text x="500" y="18" class="svg-t" font-size="11" font-weight="800" fill="#3b3878" text-anchor="middle">PACKET SWITCHING</text>
+      <g>
+        <rect x="404" y="36" width="46" height="30" rx="6" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="427" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#334155">A</text>
+        <rect x="510" y="36" width="46" height="30" rx="6" fill="#4f46e5"/>
+        <text x="533" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#fff">router</text>
+        <rect x="612" y="36" width="46" height="30" rx="6" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.4"/>
+        <text x="635" y="55" class="svg-t" font-size="8.6" text-anchor="middle" fill="#334155">B</text>
+      </g>
+      <g>
+        <rect x="428" y="40" width="16" height="9" rx="2" fill="#4f46e5"/>
+        <rect x="446" y="40" width="16" height="9" rx="2" fill="#818cf8"/>
+        <rect x="422" y="62" width="16" height="9" rx="2" fill="#818cf8"/>
+        <rect x="536" y="40" width="16" height="9" rx="2" fill="#4f46e5"/>
+        <rect x="554" y="40" width="16" height="9" rx="2" fill="#818cf8"/>
+      </g>
+      <line x1="450" y1="51" x2="510" y2="51" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar)"/>
+      <line x1="556" y1="51" x2="612" y2="51" stroke="#4f46e5" stroke-width="1.8" marker-end="url(#ar)"/>
+      <text x="533" y="84" class="svg-t" font-size="8.4" fill="#94a3b8" text-anchor="middle">packets queued &amp; forwarded independently — link fully shared</text>
+      <text x="500" y="120" class="svg-t" font-size="9.2" fill="#334155" text-anchor="middle" font-weight="700">store-and-forward: each hop receives the FULL packet,</text>
+      <text x="500" y="133" class="svg-t" font-size="9.2" fill="#334155" text-anchor="middle" font-weight="700">then transmits it on the next link</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 4.</b> Circuit switching reserves a fixed channel end-to-end; packet switching forwards self-contained packets over shared links.</div>
+  </div>
+
+  <h3>Numerical: why packets win on efficiency</h3>
+  <div class="card">
+    <b>Users share a 1 Mbps link. Each user is active 10% of the time and needs 100 kbps when active.</b>
+    <div class="grid2" style="margin-top:6px">
+      <div><b>Circuit switching:</b> each user must reserve 100 kbps forever → only <b>1 Mbps ÷ 100 kbps = 10 users</b>, and the link sits 90% idle for each of them.</div>
+      <div><b>Packet switching (n users):</b> each user active with p = 0.1. Probability that more than 10 are active simultaneously:
+      <span class="mono">P(&gt;10 active) = Σ <sub>k=11..n</sub> C(n,k) (0.1)<sup>k</sup>(0.9)<sup>n−k</sup></span>. For <b>n = 35</b>, this is under 0.04% — so packet switching supports <b>~35 users</b> on the same link with essentially no congestion.</div>
+    </div>
+  </div>
+  <div class="formula"><div class="f">Total store-and-forward delay over N links  =  N × (L / R)</div><div class="fnote">L = packet size in bits · R = link rate in bps — each link must fully receive the packet before retransmitting it</div></div>
+  <div class="callout co-exam"><div class="tag">Numerical</div><div class="body"><b>Classic exam numerical:</b> Send a 1,000-bit packet over two 1 Mbps links (store-and-forward). Total time = 2 × (1000 / 10⁶) = <b>2 ms</b>. (First link: 1 ms to push it out; second router waits until it has all 1000 bits, then 1 ms more.) With a single 1 Mbps link it would be just 1 ms — each extra hop adds L/R.</div></div>
+  <div class="callout co-info"><div class="tag">Why the Internet chose packets</div><div class="body">Data traffic is <b>bursty</b> (long silences, sudden bursts). Reserving capacity for the silence wastes it; statistical sharing exploits it. Result: cheaper, scalable, resilient — at the cost of congestion management, which TCP handles later (Lecture 10).</div></div>
+</div>
+
+<!-- ================= 6. DELAY ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>Delay &amp; Latency — the Four Delays</h2><div class="rule"></div></div>
+  <p>Every packet suffers delays at <b>every router hop</b>. Total <b>nodal delay</b> has exactly four components:</p>
+  <div class="fig">
+    <svg viewBox="0 0 680 150" width="100%">
+      <defs><marker id="ar2" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#4f46e5"/></marker></defs>
+      <rect x="12" y="34" width="66" height="46" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="45" y="54" class="svg-t" font-size="9.2" font-weight="800" fill="#3b3878" text-anchor="middle">packet</text>
+      <text x="45" y="67" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">arrives</text>
+      <rect x="112" y="34" width="106" height="46" rx="8" fill="#4f46e5"/>
+      <text x="165" y="52" class="svg-t" font-size="9.2" font-weight="800" fill="#fff" text-anchor="middle">① Processing</text>
+      <text x="165" y="66" class="svg-t" font-size="8.2" fill="#e0e7ff" text-anchor="middle">check header, pick exit link</text>
+      <rect x="252" y="34" width="106" height="46" rx="8" fill="#4f46e5"/>
+      <text x="305" y="52" class="svg-t" font-size="9.2" font-weight="800" fill="#fff" text-anchor="middle">② Queueing</text>
+      <text x="305" y="66" class="svg-t" font-size="8.2" fill="#e0e7ff" text-anchor="middle">wait in output buffer</text>
+      <rect x="392" y="34" width="106" height="46" rx="8" fill="#4f46e5"/>
+      <text x="445" y="52" class="svg-t" font-size="9.2" font-weight="800" fill="#fff" text-anchor="middle">③ Transmission</text>
+      <text x="445" y="66" class="svg-t" font-size="8.2" fill="#e0e7ff" text-anchor="middle">push bits onto link</text>
+      <rect x="532" y="34" width="106" height="46" rx="8" fill="#4f46e5"/>
+      <text x="585" y="52" class="svg-t" font-size="9.2" font-weight="800" fill="#fff" text-anchor="middle">④ Propagation</text>
+      <text x="585" y="66" class="svg-t" font-size="8.2" fill="#e0e7ff" text-anchor="middle">signal travels medium</text>
+      <g stroke="#4f46e5" stroke-width="2">
+        <line x1="80" y1="57" x2="108" y2="57" marker-end="url(#ar2)"/>
+        <line x1="220" y1="57" x2="248" y2="57" marker-end="url(#ar2)"/>
+        <line x1="360" y1="57" x2="388" y2="57" marker-end="url(#ar2)"/>
+        <line x1="500" y1="57" x2="528" y2="57" marker-end="url(#ar2)"/>
+      </g>
+      <text x="340" y="112" class="svg-mono" font-size="11.5" font-weight="700" fill="#3b3878" text-anchor="middle">d_nodal = d_proc + d_queue + d_trans + d_prop</text>
+      <text x="340" y="132" class="svg-t" font-size="9" fill="#64748b" text-anchor="middle">①+② happen in the router · ③+④ happen on the outgoing link</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 5.</b> The delay pipeline every packet passes through at each hop.</div>
+  </div>
+  <table class="t">
+    <tr><th>Delay</th><th>What happens</th><th>Formula</th><th>Depends on</th><th>Typical size</th></tr>
+    <tr><td><b>Processing</b></td><td>Router examines header, checks bit errors, looks up output link</td><td class="mono">d_proc</td><td>Router hardware speed</td><td>Microseconds — usually ignored</td></tr>
+    <tr><td><b>Queueing</b></td><td>Packet waits in the output buffer while earlier packets are sent</td><td class="mono">d_queue</td><td><b>Traffic intensity</b> (how busy the link is)</td><td>0 when idle → grows unboundedly near congestion</td></tr>
+    <tr><td><b>Transmission</b></td><td>All L bits of the packet are pushed onto the wire</td><td class="mono">d_trans = L / R</td><td>Packet length L, link rate R</td><td>ms scale for big packets on slow links</td></tr>
+    <tr><td><b>Propagation</b></td><td>The signal physically travels the medium's length</td><td class="mono">d_prop = d / s</td><td>Distance d, propagation speed s ≈ 2×10⁸ m/s (fiber/copper)</td><td>~5 ms per 1000 km — physics, can't be upgraded!</td></tr>
+  </table>
+  <div class="callout co-warn"><div class="tag">Trap</div><div class="body"><b>Transmission ≠ Propagation.</b> Transmission is writing bits onto the link (rate-limited by <b>bandwidth</b>); propagation is the signal racing along the wire (limited by <b>physics</b>). A 10-lane highway on-ramp analogy: transmission = how fast cars enter (one per second); propagation = how fast a car drives to the next city.</div></div>
+  <h3>Worked example — compute all four delays</h3>
+  <div class="card">
+    <b>Given:</b> packet length L = 1000 bytes, link rate R = 10 Mbps, link length d = 1000 km, propagation speed s = 2 × 10⁸ m/s, queueing delay ≈ 0 (link idle), processing ≈ 0.
+    <div class="steps" style="margin-top:6px">
+      <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Convert units first</div><div class="sd">L = 1000 B × 8 = <b>8000 bits</b>; R = 10 Mbps = 10⁷ bps; d = 1000 km = 10⁶ m</div></div></div>
+      <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Transmission delay</div><div class="sd">d_trans = L/R = 8000 / 10⁷ = 8×10⁻⁴ s = <b>0.8 ms</b></div></div></div>
+      <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Propagation delay</div><div class="sd">d_prop = d/s = 10⁶ / (2×10⁸) = 5×10⁻³ s = <b>5 ms</b></div></div></div>
+      <div class="step"><div class="sn">4</div><div class="sb"><div class="st">Total nodal delay</div><div class="sd">d_nodal ≈ 0 + 0 + 0.8 + 5 = <b>5.8 ms</b> — here propagation dominates</div></div></div>
+    </div>
+  </div>
+  <h3>Queueing delay &amp; traffic intensity</h3>
+  <div class="formula"><div class="f">Traffic intensity  ρ = (a · L) / R</div><div class="fnote">a = average packet arrival rate (packets/s) · L = average packet size · R = link rate</div></div>
+  <table class="t small">
+    <tr><th>Traffic intensity ρ</th><th>What happens to average queueing delay</th></tr>
+    <tr><td><b>ρ ≪ 1</b></td><td>Arrivals are rare — packets rarely wait; average queueing delay ≈ 0</td></tr>
+    <tr><td><b>ρ → 1</b></td><td>Delay grows rapidly and fluctuates wildly (bursts collide)</td></tr>
+    <tr><td><b>ρ &gt; 1</b></td><td>Arrivals exceed service rate — queue grows without bound → <b>packets are dropped</b> (loss)</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Numerical</div><div class="body"><b>Practice:</b> a = 1000 packets/s, L = 1000 bits, R = 2 Mbps → ρ = (1000×1000)/(2×10⁶) = <b>0.5</b>: stable, moderate queueing. If a doubles to 2000 → ρ = 1: queue explodes. Design rule: keep ρ well below 1.</div></div>
+  <h3>Latency vs RTT</h3>
+  <ul>
+    <li><b>Latency (one-way)</b> = time for a packet to travel source → destination (all four delays summed over every hop).</li>
+    <li><b>RTT (Round-Trip Time)</b> = there and back. Ping reports RTT (Lecture 12). Bengaluru → US server ≈ 200–250 ms RTT.</li>
+    <li>Latency matters as much as bandwidth for <b>interactive</b> apps: gaming, video calls, web page loads.</li>
+  </ul>
+</div>
+
+<!-- ================= 7. THROUGHPUT ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Bandwidth, Throughput &amp; Bottlenecks</h2><div class="rule"></div></div>
+  <div class="grid3">
+    <div class="card acc"><div class="c-title">Bandwidth</div>The <b>maximum</b> rate a link can carry (bits/second). What your ISP advertises: "100 Mbps plan". Also called link <b>capacity</b> or rate R.</div>
+    <div class="card acc"><div class="c-title">Throughput</div>The <b>actual</b> rate achieved end-to-end at an instant: bits/second successfully delivered. What your download bar shows.</div>
+    <div class="card acc"><div class="c-title">Bottleneck link</div>The <b>slowest link on the path</b> — it alone caps the throughput. Fixing any other link changes nothing!</div>
+  </div>
+  <div class="formula"><div class="f">End-to-end throughput ≈ min(R₁, R₂, R₃, … Rₙ)</div><div class="fnote">the path is a chain of links — water can't flow faster than the narrowest pipe</div></div>
+  <div class="fig">
+    <svg viewBox="0 0 680 120" width="100%">
+      <rect x="20" y="42" width="80" height="36" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="60" y="64" class="svg-t" font-size="9.4" font-weight="700" fill="#3b3878" text-anchor="middle">Server</text>
+      <rect x="300" y="42" width="80" height="36" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="340" y="64" class="svg-t" font-size="9.4" font-weight="700" fill="#3b3878" text-anchor="middle">Router</text>
+      <rect x="580" y="42" width="80" height="36" rx="8" fill="#f0eefa" stroke="#4f46e5" stroke-width="1.5"/>
+      <text x="620" y="64" class="svg-t" font-size="9.4" font-weight="700" fill="#3b3878" text-anchor="middle">Client</text>
+      <line x1="100" y1="60" x2="300" y2="60" stroke="#4f46e5" stroke-width="5"/>
+      <line x1="380" y1="60" x2="580" y2="60" stroke="#dc2626" stroke-width="2.5" stroke-dasharray="7 4"/>
+      <text x="200" y="34" class="svg-t" font-size="10" font-weight="800" fill="#3b3878" text-anchor="middle">R₁ = 10 Mbps</text>
+      <text x="480" y="34" class="svg-t" font-size="10" font-weight="800" fill="#dc2626" text-anchor="middle">R₂ = 2 Mbps ← bottleneck!</text>
+      <text x="340" y="102" class="svg-mono" font-size="11" font-weight="700" fill="#3b3878" text-anchor="middle">throughput = min(10, 2) = 2 Mbps</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 6.</b> Bottleneck principle — upgrading R₁ (or your Wi-Fi) is pointless until the 2 Mbps link is fixed.</div>
+  </div>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body">A <b>highway chain</b>: 8-lane expressway (high bandwidth) feeding a single-lane village road (low bandwidth). Traffic arrives at the village rate no matter how wide the expressway is. Same with your 1 Gbps laptop NIC on a 20 Mbps broadband line.</div></div>
+  <div class="callout co-exam"><div class="tag">Numerical</div><div class="body"><b>Path:</b> server–R₁=30 Mbps → router –R₂=10 Mbps → ISP –R₃=50 Mbps → home. Throughput = min(30,10,50) = <b>10 Mbps</b>. If ten clients share R₂ simultaneously and fairly, each gets ≈ <b>1 Mbps</b>. Also note: delay and throughput interact — a 1 MB file's transfer time is roughly max(L/R_total, RTT-limited window growth) — revisited in Lecture 10 (sliding window).</div></div>
+</div>
+
+<!-- ================= 8. DEVICES ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">8</div><h2>Network Devices — Hub, Switch, Router, Modem</h2><div class="rule"></div></div>
+  <div class="devices">
+    <div class="device"><div class="d-name">Hub</div><div class="d-layer">Layer 1 · Physical</div><div class="d-desc">Dumb repeater: copies bits from one port to <b>every</b> other port. All devices share one collision domain and one bandwidth pool. Obsolete — but a favourite exam contrast.</div></div>
+    <div class="device"><div class="d-name">Switch</div><div class="d-layer">Layer 2 · Data Link</div><div class="d-desc">Learns which <b>MAC address</b> lives on which port and forwards frames <b>only</b> to the right port. Each port gets full bandwidth; connects devices <b>within one LAN</b>.</div></div>
+    <div class="device"><div class="d-name">Router</div><div class="d-layer">Layer 3 · Network</div><div class="d-desc">Connects <b>different networks</b>; forwards packets using <b>IP addresses</b> and a routing table. The only device that lives in the network core. Your "home router" is router + switch + more (Lecture 11).</div></div>
+    <div class="device"><div class="d-name">Modem</div><div class="d-layer">Edge · Modulator</div><div class="d-desc"><b>MO</b>dulator-<b>DEM</b>odulator: converts between your home's digital signals and your ISP's line format (DSL phone line, cable TV coax, fiber light). The bridge onto the Internet.</div></div>
+  </div>
+  <table class="t">
+    <tr><th>Question</th><th>Hub</th><th>Switch</th><th>Router</th></tr>
+    <tr><td>OSI layer</td><td>1 — Physical</td><td>2 — Data Link</td><td>3 — Network</td></tr>
+    <tr><td>Addressing used</td><td>None — electrical repeat</td><td><b>MAC</b> (hardware) addresses</td><td><b>IP</b> (logical) addresses</td></tr>
+    <tr><td>Forwarding decision</td><td>Floods to all ports</td><td>MAC table lookup per port</td><td>Longest-prefix match in routing table (L7)</td></tr>
+    <tr><td>Connects</td><td>Devices in one segment (legacy)</td><td>Devices within one LAN</td><td><b>Different networks</b> (LAN ↔ Internet)</td></tr>
+    <tr><td>Intelligence / cost</td><td>None · cheapest</td><td>Moderate</td><td>Highest — runs routing protocols</td></tr>
+  </table>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body"><b>Hub</b> = shouting in a room — everyone hears, only the addressee listens (chaos as crowd grows). <b>Switch</b> = an office receptionist who memorises faces (MACs) and hands each letter directly. <b>Router</b> = the postal system routing between cities (networks). <b>Modem</b> = the translator between your home's language and the ISP line's language.</div></div>
+</div>
+
+<!-- ================= 9. OSI VS TCP/IP ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">9</div><h2>OSI vs TCP/IP — a Bird's-Eye View</h2><div class="rule"></div></div>
+  <p>Complex systems need <b>layering</b>: each layer does one job, serves the layer above, and uses the layer below. Two models organise the ideas — <b>OSI</b> (7 layers, the vocabulary) and <b>TCP/IP</b> (4 layers, what the Internet actually runs). Full detail arrives in Lecture 2; today, meet the shape:</p>
+  <div class="card acc"><div class="c-title">Mnemonic — bottom to top</div><b>"Please Do Not Throw Sausage Pizza Away"</b> → <b>P</b>hysical, <b>D</b>ata Link, <b>N</b>etwork, <b>T</b>ransport, <b>S</b>ession, <b>P</b>resentation, <b>A</b>pplication. (Top-down: "All People Seem To Need Data Processing".)</div>
+  <div class="fig">
+    <div class="grid2">
+      <div class="stack">
+        <div class="lay" style="background:#4338ca"><span class="ln">7</span>Application<span class="lp">HTTP · DNS · SMTP — user-facing protocols</span></div>
+        <div class="lay" style="background:#4f46e5"><span class="ln">6</span>Presentation<span class="lp">format, encryption — TLS lives here</span></div>
+        <div class="lay" style="background:#6366f1"><span class="ln">5</span>Session<span class="lp">dialogue control, sessions</span></div>
+        <div class="lay" style="background:#818cf8"><span class="ln">4</span>Transport<span class="lp">TCP · UDP — end-to-end delivery, ports</span></div>
+        <div class="lay" style="background:#8b5cf6"><span class="ln">3</span>Network<span class="lp">IP — routing across networks</span></div>
+        <div class="lay" style="background:#a78bfa"><span class="ln">2</span>Data Link<span class="lp">Ethernet · Wi-Fi — frames, MAC addresses</span></div>
+        <div class="lay" style="background:#c4b5fd;color:#3b3878"><span class="ln">1</span>Physical<span class="lp">bits as voltages / light / radio</span></div>
+        <div class="side-note">OSI model — 7 layers (ISO, 1984) — the reference vocabulary</div>
+      </div>
+      <div class="stack">
+        <div class="lay" style="background:#4338ca"><span class="ln">4</span>Application<span class="lp">merges OSI 5+6+7 — HTTP, DNS, TLS…</span></div>
+        <div class="lay" style="background:#818cf8"><span class="ln">3</span>Transport<span class="lp">TCP · UDP</span></div>
+        <div class="lay" style="background:#8b5cf6"><span class="ln">2</span>Internet<span class="lp">IP · ICMP — the network layer</span></div>
+        <div class="lay" style="background:#a78bfa"><span class="ln">1</span>Network Access<span class="lp">merges OSI 1+2 — Ethernet, Wi-Fi, 5G radio</span></div>
+        <div class="side-note">TCP/IP model — 4 layers (DARPA) — what the Internet runs</div>
+      </div>
+    </div>
+    <div class="fig-cap"><b>Figure 7.</b> Same ideas, different groupings: engineers implement TCP/IP but describe problems with OSI layer numbers ("that's a Layer 3 issue").</div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><i>"Compare OSI and TCP/IP models."</i> Points: OSI = 7 layers, theoretical reference, created by ISO for standardisation; TCP/IP = 4 (or 5) layers, practical, developed by DARPA, what the Internet actually uses. OSI's Session+Presentation collapse into TCP/IP's Application; OSI's Physical+Data Link collapse into Network Access. We implement TCP/IP but <b>speak</b> in OSI layer numbers.</div></div>
+</div>
+
+<!-- ================= CHEAT SHEET ================= -->
+<div class="cheat">
+  <div class="cheat-title">Lecture 1 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Network</b> = nodes (devices) + links (wired/wireless) exchanging data.</div>
+    <div class="cheat-item"><b>PAN→LAN→MAN→WAN</b>: 10 m → building → city → world. LAN = fast, private; WAN = telecom-owned.</div>
+    <div class="cheat-item"><b>Internet</b> = network of networks: access ISPs → regional → Tier-1 backbone.</div>
+    <div class="cheat-item"><b>Edge</b> = hosts/apps; <b>Access</b> = Wi-Fi/FTTH/4G; <b>Core</b> = router mesh, packet switching.</div>
+    <div class="cheat-item"><b>Circuit</b> = reserved path (FDM/TDM), guaranteed but wasteful. <b>Packet</b> = store-and-forward sharing, efficient but queueing/loss.</div>
+    <div class="cheat-item"><b>d_nodal = d_proc + d_queue + d_trans + d_prop</b>; d_trans = L/R; d_prop = d/s (s ≈ 2×10⁸ m/s).</div>
+    <div class="cheat-item"><b>RTT</b> = round trip; ping measures it. ρ = aL/R &lt; 1 or queues explode.</div>
+    <div class="cheat-item"><b>Throughput = min(R₁…Rₙ)</b> — bottleneck link rules; bandwidth ≠ throughput.</div>
+    <div class="cheat-item"><b>Hub L1</b> floods; <b>Switch L2</b> MACs in one LAN; <b>Router L3</b> IPs between networks; <b>Modem</b> bridges ISP line.</div>
+    <div class="cheat-item"><b>OSI 7</b>: PDNTSPA · <b>TCP/IP 4</b>: App-Transport-Internet-Network Access.</div>
+  </div>
+</div>
+
+<!-- ================= QUESTIONS ================= -->
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Which delay component depends on the physical distance between routers?<ul class="opts"><li>a) Processing</li><li>b) Transmission</li><li>c) Propagation</li><li>d) Queueing</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>A 1500-byte packet is sent on a 3 Mbps link. Transmission delay is:<ul class="opts"><li>a) 0.5 ms</li><li>b) 4 ms</li><li>c) 2 ms</li><li>d) 0.2 ms</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>Which device forwards frames using MAC addresses within a single LAN?<ul class="opts"><li>a) Hub</li><li>b) Router</li><li>c) Switch</li><li>d) Modem</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>In packet switching, store-and-forward means the router:<ul class="opts"><li>a) sends bits as they arrive</li><li>b) receives the entire packet before forwarding</li><li>c) reserves bandwidth first</li><li>d) broadcasts to all ports</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>A path crosses links of 8, 4 and 100 Mbps. End-to-end throughput is:<ul class="opts"><li>a) 100 Mbps</li><li>b) 8 Mbps</li><li>c) 4 Mbps</li><li>d) 37.3 Mbps</li></ul></div>
+  </div>
+
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Define a computer network in terms of nodes and links. Give two reasons networks exist.</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>Differentiate LAN and WAN (any four points) with one example each.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Why is the Internet called a "network of networks"? Sketch the ISP tier hierarchy.</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>Distinguish bandwidth, throughput and bottleneck link with an example.</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>Differentiate transmission delay and propagation delay. Which one can an ISP upgrade?</div>
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Short</span>State the mnemonic for OSI layers and map the 7 OSI layers onto the 4 TCP/IP layers.</div>
+  </div>
+
+  <h3>C. Long Answer / Numericals (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Compare circuit switching and packet switching. Include FDM/TDM, efficiency, and a worked example showing why packet switching supports more bursty users.</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Numerical</span>A 1200-byte packet crosses three store-and-forward links: R₁ = 10 Mbps (600 km), R₂ = 1 Mbps (30 km), R₃ = 10 Mbps (1200 km). s = 2×10⁸ m/s. Compute per-link transmission and propagation delays, and the total one-way delay (ignore processing/queueing).</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Numerical</span>Users join a shared 10 Mbps link. Each needs 500 kbps when active and is active 20% of the time. (i) How many users can circuit switching support? (ii) Under packet switching, if 40 users subscribe, what is the probability that ≥ 21 are simultaneously active (comment qualitatively)?</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Long</span>"The network core is a mesh of routers running packet switching." With a diagram, explain edge vs access vs core, and explain what happens at one router as a packet transits it.</div>
+    <div class="q"><span class="q-no">Q16.</span><span class="q-tag">Long</span>Explain the four components of nodal delay with formulas. Compute d_nodal for L = 8000 bits, R = 100 Mbps, d = 200 km, s = 2×10⁸ m/s, average queueing 3 ms, processing negligible.</div>
+  </div>
+
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> c — propagation = distance ÷ speed of the medium.</div>
+    <div class="a-item"><b>A2.</b> b — 1500 B = 12,000 bits ÷ 3×10⁶ = 4 ms.</div>
+    <div class="a-item"><b>A3.</b> c — switch (L2, MAC table); hub floods, router uses IP.</div>
+    <div class="a-item"><b>A4.</b> b — receive fully, then forward (adds L/R per hop).</div>
+    <div class="a-item"><b>A5.</b> c — throughput = min link = 4 Mbps.</div>
+    <div class="a-item"><b>A6.</b> Nodes = communicating devices; links = transmission media. Reasons: communication, resource sharing (any two: cost, reliability, scale).</div>
+    <div class="a-item"><b>A7.</b> LAN: building/campus, privately owned, 100 Mbps–10 Gbps, very low latency (home Wi-Fi). WAN: country/world, telecom-owned leased links, higher latency &amp; cost (Internet backbone, bank ATM network).</div>
+    <div class="a-item"><b>A8.</b> Millions of interconnected networks; each access LAN → local ISP → regional → Tier-1; no single owner; common protocols bind them. (Sketch as in Figure 2.)</div>
+    <div class="a-item"><b>A9.</b> Bandwidth = capacity of a link; throughput = achieved end-to-end rate = min of links; bottleneck = the slowest link. Example: 100 Mbps Wi-Fi → 10 Mbps broadband = 10 Mbps.</div>
+    <div class="a-item"><b>A10.</b> Transmission = L/R (push bits on, upgradeable by buying bandwidth); propagation = d/s (physics of distance, not upgradeable).</div>
+    <div class="a-item"><b>A11.</b> Please Do Not Throw Sausage Pizza Away. 5+6+7 → Application; 4 → Transport; 3 → Internet; 1+2 → Network Access.</div>
+    <div class="a-item"><b>A13.</b> d_trans: 0.96 ms / 9.6 ms / 0.96 ms (L=9600 b). d_prop: 3 ms / 0.15 ms / 6 ms. Total = (0.96+9.6+0.96) + (3+0.15+6) = <b>20.67 ms</b> — middle slow link dominates both terms.</div>
+    <div class="a-item"><b>A14.</b> (i) 10 Mbps ÷ 0.5 Mbps = 20 reserved users. (ii) With n = 40, p = 0.2: mean active = 8, σ ≈ 2.53; needing ≥ 21 active is z ≈ 4.7 standard deviations above the mean — probability ~10⁻⁶, effectively never congested: all 40 share comfortably.</div>
+    <div class="a-item"><b>A16.</b> d_trans = 8000/10⁸ = 0.08 ms; d_prop = 2×10⁵/2×10⁸ = 1 ms; d_nodal ≈ 0 + 3 + 0.08 + 1 = <b>4.08 ms</b>.</div>
+    <div class="a-item"><b>A12, A15.</b> Structure your answer with Figures 4 and 3: definitions → diagram → 3–4 contrast points → example/numeric. Graders award labelled diagrams.</div>
+  </div>
+</div>
+
+</body>
+</html>

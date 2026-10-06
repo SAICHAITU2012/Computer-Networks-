@@ -1,0 +1,259 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 13 — The Complete Internet Journey</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#4338ca; --acc-d:#31307d; --acc-l:#eeedf8; --acc-m:#cdd0ec; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">13</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>The Complete<br>Internet Journey</h1>
+    <div class="tagline">One HTTPS request, end to end — browser cache, DNS, ARP, TCP, TLS, HTTP, NAT, routing, load balancers, and the ride home. Every lecture, one story.</div>
+    <div class="chips"><span class="chip">Browser Cache</span><span class="chip">DNS Lookup</span><span class="chip">ARP</span><span class="chip">TCP Handshake</span><span class="chip">TLS Handshake</span><span class="chip">Diffie-Hellman</span><span class="chip">HTTP Request</span><span class="chip">NAT &amp; Routing</span><span class="chip">Load Balancer</span><span class="chip">Response &amp; Close</span><span class="chip">Full Timeline</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>The course payoff: follow one request from typing https://www.example.com to pixels on screen — all nine phases, the millisecond-by-millisecond timeline, TLS 1.3 and the paint-mixing Diffie-Hellman analogy, where every protocol from Lectures 1–12 appears, plus a troubleshooting map of everything that can go wrong.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Timeline · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Trace an HTTPS request <b>end-to-end</b> through all nine phases</li>
+    <li>Map every phase to its <b>OSI layer and protocol</b></li>
+    <li>Explain the <b>TLS 1.3 handshake</b> and Diffie-Hellman key exchange</li>
+    <li>Identify <b>bottleneck phases</b> and their optimisations (cache, CDN, keep-alive)</li>
+    <li>Connect <b>all 12 previous lectures</b> into one mental model</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">One HTTPS Request</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">① Cache</div><div class="mm-children"><div class="mm-child">memory → disk → conditional GET</div></div></div>
+    <div class="mm-branch"><div class="mm-node">② DNS</div><div class="mm-children"><div class="mm-child">caches → resolver → root→TLD→auth</div></div></div>
+    <div class="mm-branch"><div class="mm-node">③ ARP</div><div class="mm-children"><div class="mm-child">gateway's MAC</div></div></div>
+    <div class="mm-branch"><div class="mm-node">④ TCP</div><div class="mm-children"><div class="mm-child">SYN SYN-ACK ACK (+NAT)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">⑤ TLS 1.3</div><div class="mm-children"><div class="mm-child">certs + DH keys</div><div class="mm-child">encrypted channel</div></div></div>
+    <div class="mm-branch"><div class="mm-node">⑥–⑦ HTTP</div><div class="mm-children"><div class="mm-child">GET → LB → app → 200 OK</div></div></div>
+    <div class="mm-branch"><div class="mm-node">⑧–⑨ Return+Close</div><div class="mm-children"><div class="mm-child">NAT reverse → render → FIN×2</div></div></div>
+  </div>
+</div>
+
+<div class="card acc"><div class="c-title">The scenario — pinned numbers used throughout</div>
+<span class="mono">URL: https://www.example.com/products?id=42 · Laptop 192.168.1.5 (DHCP) · GW 192.168.1.1 · Router WAN 203.0.113.5 · Server 93.184.216.34 (behind a load balancer)</span></div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Phase 1 — Browser Cache (0 ms if lucky)</h2><div class="rule"></div></div>
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Memory cache</div><div class="sd">Same browsing session &amp; fresh? Return instantly — zero network.</div></div></div>
+    <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Disk cache</div><div class="sd">Within <span class="mono">Cache-Control: max-age</span>? Serve from disk. Stale? Send a <b>conditional GET</b>: <span class="mono">If-None-Match: "etag123"</span> → server replies <b>304 Not Modified</b> → reuse cached body (no transfer!).</div></div></div>
+    <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Miss → full journey begins</div><div class="sd">All the headers that make this work: <span class="mono">Cache-Control</span> (freshness), <span class="mono">ETag</span> (fingerprint), <span class="mono">Expires</span> (legacy).</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>Phase 2 — DNS Resolution</h2><div class="rule"></div></div>
+  <p>Cache chain first: browser → OS → <span class="mono">/etc/hosts</span> → router forwarder (192.168.1.1:53) → recursive resolver (8.8.8.8) → hierarchy:</p>
+  <div class="flow"><span class="fc">resolver → ROOT</span><span class="fa">→</span><span class="fc">"ask .com @ 192.5.6.30"</span><span class="fa">→</span><span class="fc">resolver → TLD</span><span class="fa">→</span><span class="fc">"ask ns1.example.com"</span><span class="fa">→</span><span class="fc">resolver → AUTH</span><span class="fa">→</span><span class="fc hot">93.184.216.34 · TTL 300</span></div>
+  <div class="card"><div class="c-title">The DNS packet itself</div><span class="mono">UDP · src port 54321 (ephemeral) · dst port 53 · query type A</span> — answer cached 300 s by every hop that touched it.</div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Phase 3 — ARP the Gateway</h2><div class="rule"></div></div>
+  <div class="code"><span class="out">Routing decision:</span> 93.184.216.34 ∉ 192.168.1.0/24 → use gateway 192.168.1.1
+<span class="out">ARP cache:</span> hit → router MAC 11:22:33:44:55:66 (miss → broadcast + reply)
+<span class="fn">Frame built:</span> DstMAC router · SrcMAC laptop · IP 192.168.1.5 → 93.184.216.34</div>
+  <div class="callout co-exam"><div class="tag">The rule</div><div class="body">MACs change every hop; IPs persist end-to-end (until NAT rewrites them in Phase 4!).</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Phase 4 — TCP Handshake (+ NAT at the edge)</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">The handshake (to 93.184.216.34:443)</div><div class="code" style="margin-top:4px"><span class="out">SYN (seq=x) →  </span><span class="ch">1 RTT total</span>
+<span class="out">← SYN-ACK (seq=y, ack=x+1)</span>
+<span class="out">ACK (ack=y+1) →  ESTABLISHED</span></div></div>
+    <div class="card"><div class="c-title">NAT happens right here</div><div class="code" style="margin-top:4px"><span class="out">laptop:</span> 192.168.1.5:52341 → 93.184.216.34:443
+<span class="kw">router:</span> 203.0.113.5:10001 → 93.184.216.34:443
+<span class="ch">table: 10001 ↔ 192.168.1.5:52341</span></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Phase 5 — TLS 1.3 Handshake (1-RTT)</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">The messages</div>
+      <div class="code" style="margin-top:4px"><span class="out">ClientHello →</span> TLS 1.3 · cipher suites · <span class="kw">SNI: www.example.com</span> · random
+<span class="out">← ServerHello + Certificate (+chain) + Finished</span>
+<span class="out">Client Finished →</span> &nbsp;<span class="fn">ENCRYPTED CHANNEL ✓</span></div>
+      <ul style="margin-top:6px">
+        <li><b>SNI</b> — which domain's cert to serve (many sites per IP)</li>
+        <li><b>Certificate</b> — public key + domain, signed up a chain to a trusted root CA</li>
+        <li><b>Forward secrecy</b> — fresh ephemeral DH keys per session; leak later ≠ decrypt past</li>
+        <li><b>0-RTT</b> — returning clients send data immediately (replay-risk caveat)</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="c-title">Diffie-Hellman — the paint analogy</div>
+      <div class="code" style="margin-top:4px"><span class="out">public: YELLOW paint</span>
+Alice secret RED · Bob secret BLUE
+<span class="num2">1</span> Alice: Y+RED=ORANGE → sends
+<span class="num2">2</span> Bob:   Y+BLUE=GREEN → sends
+<span class="num2">3</span> Alice: GREEN+RED=BROWN
+     Bob:  ORANGE+BLUE=BROWN
+<span class="fn">Same colour — secret never travelled!</span>
+<span class="ch">Eve saw Y, O, G — can't unmix.</span></div>
+      <div class="formula" style="margin-top:8px"><div class="f">A=g^a mod p · B=g^b mod p · shared = g^(ab) mod p</div><div class="fnote">attacker can't compute g^(ab) from g^a, g^b — discrete logarithm problem</div></div>
+    </div>
+  </div>
+  <div class="callout co-info"><div class="tag">Why TLS needs TCP</div><div class="body">TLS gives <b>confidentiality &amp; integrity</b>, not delivery. It still leans on TCP for reliable, ordered record transport — that's why it runs <i>after</i> the handshake, <i>inside</i> the connection.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>Phase 6 — The HTTP Request (encrypted)</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div>
+      <div class="code-head"><span>the request</span><span>inside TLS</span></div>
+      <div class="code"><span class="kw">GET</span> /products?id=42 <span class="out">HTTP/1.1</span>
+<span class="fn">Host:</span> www.example.com
+<span class="fn">User-Agent:</span> Mozilla/5.0 …
+<span class="fn">Accept-Encoding:</span> gzip, br
+<span class="fn">Cookie:</span> session_id=abc123
+<span class="fn">Connection:</span> keep-alive</div>
+    </div>
+    <div>
+      <div class="code-head"><span>packet stack leaving the laptop</span><span>L7 → L2</span></div>
+      <div class="code"><span class="out">HTTP GET</span>            <span class="ch">L7 app</span>
+<span class="out">TLS record (AES)</span>     <span class="ch">L6 presentation</span>
+<span class="out">TCP :52341 → :443</span>    <span class="ch">L4 transport</span>
+<span class="out">IP .5 → .34</span>          <span class="ch">L3 network</span>
+<span class="out">ETH MAC→MAC</span>          <span class="ch">L2 link</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Phase 7 — Server Side: LB → App → Response</h2><div class="rule"></div></div>
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Load balancer</div><div class="sd">Terminates TLS (<b>SSL offloading</b> — backends see plain HTTP), picks a backend, adds <span class="mono">X-Forwarded-For: 203.0.113.5</span> so the app logs the real client.</div></div></div>
+    <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Web app</div><div class="sd">Route /products → auth via session_id → DB query → render HTML.</div></div></div>
+    <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Response</div><div class="sd"><span class="mono">200 OK · Content-Encoding: gzip · Cache-Control: max-age=300 · ETag · Set-Cookie (Secure; HttpOnly)</span> — compressed body.</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">8</div><h2>Phase 8 — The Ride Home &amp; Phase 9 — Close</h2><div class="rule"></div></div>
+  <div class="code"><span class="out">LB re-encrypts → TCP src 93.184.216.34:443 → dst 203.0.113.5:10001
+Router NAT reverse: 10001 → 192.168.1.5:52341 → LAN delivery
+Laptop: TCP reassembles → TLS decrypts → HTTP parses → gunzip → RENDER 🎉
+Sub-resources reuse the same TCP connection (keep-alive / HTTP-2 multiplexing)</span>
+
+<span class="out">Close: FIN → ACK → FIN → ACK → client TIME_WAIT ~60 s → NAT entry expires</span></div>
+  <h3>The full timeline (typical, ~100 ms RTT to server)</h3>
+  <div class="timeline">
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">0–5 ms</span>Browser + OS cache misses</div><div class="tl-d">conditional checks fail — we must go to the network.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">5–70 ms</span>DNS resolution</div><div class="tl-d">resolver → root → TLD → authoritative → 93.184.216.34.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">70–75 ms</span>ARP + SYN out</div><div class="tl-d">gateway MAC cached; SYN leaves, NAT entry created.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">75–177 ms</span>TCP handshake</div><div class="tl-d">SYN-ACK back, ACK out — ESTABLISHED (1 RTT).</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">180–283 ms</span>TLS 1.3</div><div class="tl-d">ClientHello → ServerHello+cert → Finished (1 RTT).</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div><div class="tl-line"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">285–400 ms</span>Request + server work</div><div class="tl-d">GET travels encrypted; LB, app, DB do their thing.</div></div></div>
+    <div class="tl-item"><div class="tl-rail"><div class="tl-dot"></div></div><div class="tl-body"><div class="tl-t"><span class="tl-when">400–500 ms</span>Response arrives</div><div class="tl-d">decrypt, decompress, render HTML; 600–800 ms → CSS/JS/images done (often via CDN).</div></div></div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Optimisations</div><div class="body">Second visit ≈ 50 ms because <b>cache + keep-alive + session resumption</b> skip DNS, handshake and most transfer. That's the exam's "why is the second load faster" answer, phase by phase.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">9</div><h2>Everything Maps — Protocol × Layer × Lecture</h2><div class="rule"></div></div>
+  <table class="t small">
+    <tr><th>Phase</th><th>Protocol</th><th>OSI layer</th><th>Lecture</th><th>Phase</th><th>Protocol</th><th>Layer</th><th>Lec</th></tr>
+    <tr><td>Get an IP</td><td>DHCP</td><td>L7/L3</td><td>L11</td><td>Encryption</td><td>TLS</td><td>L6</td><td>L13</td></tr>
+    <tr><td>Gateway MAC</td><td>ARP</td><td>L2</td><td>L11</td><td>Web request</td><td>HTTP/1.1</td><td>L7</td><td>L9</td></tr>
+    <tr><td>Name → IP</td><td>DNS</td><td>L7</td><td>L9</td><td>Between ASes</td><td>BGP</td><td>L3</td><td>L8</td></tr>
+    <tr><td>Reliable pipe</td><td>TCP</td><td>L4</td><td>L10</td><td>Inside ISP</td><td>OSPF</td><td>L3</td><td>L8</td></tr>
+    <tr><td>Address sharing</td><td>NAT/PAT</td><td>L3</td><td>L4·L11</td><td>Packet delivery</td><td>IP</td><td>L3</td><td>L3·L7</td></tr>
+    <tr><td>Frame delivery</td><td>Ethernet</td><td>L2</td><td>L2</td><td>Local delivery</td><td>ARP</td><td>L2</td><td>L11</td></tr>
+  </table>
+  <h3>When it breaks — the troubleshooting map</h3>
+  <table class="t small">
+    <tr><th>Symptom</th><th>Phase</th><th>Tool</th><th>Typical fix</th></tr>
+    <tr><td class="mono">ERR_NAME_NOT_RESOLVED</td><td>DNS</td><td class="mono">dig</td><td>fix resolver / flush cache</td></tr>
+    <tr><td class="mono">ERR_CONNECTION_REFUSED</td><td>TCP</td><td class="mono">ss -tulpn</td><td>service down / wrong port</td></tr>
+    <tr><td class="mono">SSL_ERROR</td><td>TLS</td><td class="mono">openssl s_client</td><td>expired cert / wrong hostname</td></tr>
+    <tr><td class="mono">404 / 403</td><td>HTTP/app</td><td>devtools</td><td>path / permissions</td></tr>
+    <tr><td class="mono">500</td><td>App</td><td>server logs</td><td>bug in code</td></tr>
+    <tr><td>Slow TTFB</td><td>Server</td><td>monitoring</td><td>DB queries, caching</td></tr>
+    <tr><td>Intermittent drops</td><td>Path</td><td class="mono">mtr</td><td>loss mid-path → ISP</td></tr>
+  </table>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 13 — Rapid Revision Card (the whole course on one card)</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>9 phases</b>: cache → DNS → ARP → TCP → TLS → HTTP → server → return → close.</div>
+    <div class="cheat-item"><b>Cache chain</b>: memory → disk (+ETag/304) → OS → resolver.</div>
+    <div class="cheat-item"><b>DNS</b>: resolver walks root→TLD→auth; TTL 300 caches it.</div>
+    <div class="cheat-item"><b>ARP</b>: gateway MAC (cache or broadcast). MACs change per hop, IPs persist till NAT.</div>
+    <div class="cheat-item"><b>TCP</b> = 1 RTT handshake; <b>TLS 1.3</b> = 1 more RTT; both inside ~200 ms for 100 ms RTT.</div>
+    <div class="cheat-item"><b>DH</b>: public g^a, g^b → shared g^(ab); secrets never transmitted; KDF → AES keys.</div>
+    <div class="cheat-item"><b>LB</b>: SSL offload + X-Forwarded-For; <b>NAT</b>: port table both directions.</div>
+    <div class="cheat-item"><b>Second visit fast</b>: cache hits + keep-alive + TLS resumption skip phases 1,2,4,5.</div>
+    <div class="cheat-item"><b>TTFB</b> = request-out → first-byte-in (RTT + server time).</div>
+    <div class="cheat-item"><b>Close</b>: FIN/ACK×2, TIME_WAIT, NAT entry expires.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>A 304 Not Modified response means the browser sent:<ul class="opts"><li>a) Cache-Control: no-store</li><li>b) If-None-Match with an ETag</li><li>c) a fresh POST</li><li>d) nothing — server guessed</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>TLS runs after the TCP handshake because:<ul class="opts"><li>a) DNS must finish first</li><li>b) TLS records need TCP's reliable, ordered transport</li><li>c) NAT requires it</li><li>d) certificates use UDP</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>Why does the load balancer add X-Forwarded-For?<ul class="opts"><li>a) speed</li><li>b) TLS encryption</li><li>c) preserve the real client IP after proxying</li><li>d) DNS</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>On the second visit to a page, which phases are typically skipped?<ul class="opts"><li>a) render only</li><li>b) DNS + full TLS (cache, keep-alive, resumption)</li><li>c) HTTP request</li><li>d) TCP close</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>If the NAT entry for an active TCP flow expires mid-stream:<ul class="opts"><li>a) nothing happens</li><li>b) return packets have no table entry → dropped; connection dies</li><li>c) TCP re-handshakes automatically</li><li>d) TLS renegotiates</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>List the nine phases of an HTTPS request in order with one line each.</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>Why can't the browser skip the TCP handshake when TLS will encrypt anyway?</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>What is SNI and what problem does it solve?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>Explain forward secrecy in one sentence using the paint analogy.</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>What is TTFB and which two components make it up?</div>
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Short</span>Why don't CSS/JS requests after the HTML need new handshakes?</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span><b>The big one:</b> trace https://www.example.com end-to-end with a diagram — cache, DNS, ARP, TCP, TLS, HTTP, NAT, LB, response, close — naming the protocol, OSI layer and lecture for each phase.</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Explain the TLS 1.3 handshake AND the Diffie-Hellman exchange (paint + math). Why can't an eavesdropper compute the session key?</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>Reconstruct the ~500 ms timeline from this lecture and explain how caching, keep-alive and session resumption collapse it to ~50 ms.</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Long</span>"Everything in this course happens in one click." Prove it: map all 12 lectures to phases of the journey (table form), and identify the three most common failure points with tools.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — conditional GET with the cached ETag.</div>
+    <div class="a-item"><b>A2.</b> b — TLS is a user of TCP's byte stream.</div>
+    <div class="a-item"><b>A3.</b> c — otherwise logs/apps only ever see the LB's IP.</div>
+    <div class="a-item"><b>A4.</b> b — cached resources, reused connection, resumed TLS.</div>
+    <div class="a-item"><b>A5.</b> b — replies arrive at the public IP:port with no mapping → dropped.</div>
+    <div class="a-item"><b>A6.</b> Cache → DNS → ARP → TCP → TLS → HTTP request → server/LB → response → close.</div>
+    <div class="a-item"><b>A7.</b> TLS rides inside TCP; without the byte stream there is nothing to encrypt over.</div>
+    <div class="a-item"><b>A8.</b> ClientHello carries the hostname so the server presents the right certificate — many HTTPS sites per IP.</div>
+    <div class="a-item"><b>A9.</b> Fresh ephemeral keys per session mean a future private-key leak can't un-mix past sessions' colours.</div>
+    <div class="a-item"><b>A10.</b> Time-to-first-Byte = network RTT + server processing (LB+app+DB).</div>
+    <div class="a-item"><b>A11.</b> keep-alive reuses the established connection; HTTP/2 multiplexes many streams over it.</div>
+    <div class="a-item"><b>A12–A15.</b> The lecture IS the answer key — reproduce the phase diagram + mapping table + timeline with the optimisation column.</div>
+  </div>
+</div>
+
+</body>
+</html>

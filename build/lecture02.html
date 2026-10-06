@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 2 — Network Packets and Layered Communication</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#0284c7; --acc-d:#2d6a8f; --acc-l:#eef6fb; --acc-m:#c9dfec; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">02</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Network Packets and<br>Layered Communication</h1>
+    <div class="tagline">Protocols, the OSI &amp; TCP/IP models, encapsulation, frames vs packets vs segments, the Ethernet frame, MTU, fragmentation and MAC addresses.</div>
+    <div class="chips"><span class="chip">Protocols</span><span class="chip">OSI 7 Layers</span><span class="chip">TCP/IP Model</span><span class="chip">Encapsulation</span><span class="chip">Decapsulation</span><span class="chip">Headers &amp; Payload</span><span class="chip">Frame · Packet · Segment</span><span class="chip">Ethernet Frame</span><span class="chip">MTU</span><span class="chip">Fragmentation</span><span class="chip">MAC Addresses</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>How the Internet organises itself into layers — why every message gets wrapped in layer after layer of headers, what each OSI layer is responsible for, exactly how an Ethernet frame is laid out byte-by-byte, what happens when a packet is too big for a link (MTU &amp; fragmentation), and the crucial rule of MAC vs IP scope — with a full worked journey of a web request.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Numericals · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Define <b>protocol</b> and explain <b>why layered architecture</b> exists</li>
+    <li>Name all <b>7 OSI layers</b> and describe each one's responsibility</li>
+    <li>Map OSI layers onto the <b>TCP/IP model</b> used in practice</li>
+    <li>Trace <b>encapsulation</b> (down the stack) and <b>decapsulation</b> (up the stack)</li>
+    <li>Distinguish <b>frames, packets and segments</b> — and which addresses each carries</li>
+    <li>Read an <b>Ethernet frame</b> field-by-field, and explain <b>MTU</b> and <b>fragmentation</b></li>
+    <li>Describe <b>MAC address</b> structure, scope, and how <b>ARP</b> connects IP↔MAC</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Packets &amp; Layered Communication</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Protocol</div><div class="mm-children"><div class="mm-child">format · sequence · actions</div><div class="mm-child">both sides must agree</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Layering</div><div class="mm-children"><div class="mm-child">modularity · reuse · isolation</div><div class="mm-child">each layer = one job</div></div></div>
+    <div class="mm-branch"><div class="mm-node">OSI — 7 layers</div><div class="mm-children"><div class="mm-child">PDNTSPA mnemonic</div><div class="mm-child">vocabulary for problems</div></div></div>
+    <div class="mm-branch"><div class="mm-node">TCP/IP — 4 layers</div><div class="mm-children"><div class="mm-child">what the Internet runs</div><div class="mm-child">App · Transport · Internet · Net-Access</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Encapsulation</div><div class="mm-children"><div class="mm-child">headers added going down</div><div class="mm-child">stripped going up</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Data Units</div><div class="mm-children"><div class="mm-child">Segment (L4 · ports)</div><div class="mm-child">Packet (L3 · IPs)</div><div class="mm-child">Frame (L2 · MACs)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Ethernet &amp; MTU</div><div class="mm-children"><div class="mm-child">frame fields byte-by-byte</div><div class="mm-child">MTU 1500 B</div><div class="mm-child">fragment + reassemble</div></div></div>
+    <div class="mm-branch"><div class="mm-node">MAC &amp; ARP</div><div class="mm-children"><div class="mm-child">48-bit · OUI + device</div><div class="mm-child">local scope, changes each hop</div><div class="mm-child">ARP: IP → MAC</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>What is a Protocol? Why Layers?</h2><div class="rule"></div></div>
+  <p>A <b>protocol</b> is a set of agreed-upon rules governing communication. Both sender and receiver must follow the same protocol or communication fails. In networking a protocol defines three things:</p>
+  <div class="grid3">
+    <div class="card acc"><div class="c-title">Format</div>Which fields appear, in what order, what each byte means (the message "grammar").</div>
+    <div class="card acc"><div class="c-title">Sequence</div>Who initiates, who responds, and in what order (the "conversation flow").</div>
+    <div class="card acc"><div class="c-title">Actions</div>What to do on events: message lost, corrupted, arrives out of order.</div>
+  </div>
+  <h3>Why layered protocols?</h3>
+  <p>Rather than one massive protocol doing everything, networking uses a <b>layered architecture</b>: each layer has <b>one job</b>, relies on the layer below, and provides a service to the layer above.</p>
+  <ul>
+    <li><b>Modularity</b> — change one layer without touching others: Apple can update Safari's HTTP engine without modifying TCP.</li>
+    <li><b>Reusability</b> — TCP works identically over Ethernet, Wi-Fi, or 4G.</li>
+    <li><b>Isolation</b> — easier diagnosis: if TCP connects but the page is broken, the problem is in the application layer, not the network.</li>
+  </ul>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body">Sending a gift: you (application) write the card; the packing service (transport) boxes it; the courier company (network) routes the box; the local delivery van (data link) carries it on the final street; the road (physical) carries the van. <b>Each level only cares about its own wrapping.</b></div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>The OSI Model — 7 Layers</h2><div class="rule"></div></div>
+  <p>In the 1980s vendors (IBM, DEC…) had incompatible systems. The <b>ISO</b> created the <b>OSI (Open Systems Interconnection) model, 1984</b>, as a universal reference. Every network function belongs to one of 7 layers:</p>
+  <div class="fig">
+    <div class="stack">
+      <div class="lay" style="background:#0e7490"><span class="ln">7</span>Application<span class="lp">rules for what apps say — HTTP · SMTP · DNS · SSH</span></div>
+      <div class="lay" style="background:#0891b2"><span class="ln">6</span>Presentation<span class="lp">formatting, compression, encryption — TLS · JPEG · gzip</span></div>
+      <div class="lay" style="background:#06b6d4"><span class="ln">5</span>Session<span class="lp">session lifecycle — largely absorbed into apps/TCP today</span></div>
+      <div class="lay" style="background:#0284c7"><span class="ln">4</span>Transport<span class="lp">end-to-end delivery, ports, reliability — TCP · UDP</span></div>
+      <div class="lay" style="background:#2563eb"><span class="ln">3</span>Network<span class="lp">routing across networks, IP addressing — IP · ICMP</span></div>
+      <div class="lay" style="background:#4f46e5"><span class="ln">2</span>Data Link<span class="lp">local delivery, frames, MAC — Ethernet · Wi-Fi 802.11</span></div>
+      <div class="lay" style="background:#7c3aed"><span class="ln">1</span>Physical<span class="lp">bits on the wire — voltages · light · radio (Cat6, 802.11)</span></div>
+      <div class="side-note">Layer numbers are used from TOP (7) to BOTTOM (1) — data flows 7→1 on send, 1→7 on receive</div>
+    </div>
+    <div class="fig-cap"><b>Figure 1.</b> The OSI reference model — a common vocabulary, not a running implementation.</div>
+  </div>
+  <div class="card acc"><div class="c-title">Mnemonic (bottom → top)</div><b>"Please Do Not Throw Sausage Pizza Away"</b> → <b>P</b>hysical, <b>D</b>ata Link, <b>N</b>etwork, <b>T</b>ransport, <b>S</b>ession, <b>P</b>resentation, <b>A</b>pplication.</div>
+  <table class="t">
+    <tr><th>Layer</th><th>One-line job</th><th>If it breaks… (symptom)</th></tr>
+    <tr><td><b>1 — Physical</b></td><td>How bits travel: voltage on copper, light in fiber, radio for Wi-Fi</td><td>Cable unplugged — nothing works at all</td></tr>
+    <tr><td><b>2 — Data Link</b></td><td>Organises bits into <b>frames</b>; delivery on ONE network via <b>MAC addresses</b></td><td>Connected but can't talk to devices on the <i>same subnet</i></td></tr>
+    <tr><td><b>3 — Network</b></td><td>Routing <b>across networks</b> via <b>IP addresses</b></td><td>Can reach your router but not the Internet</td></tr>
+    <tr><td><b>4 — Transport</b></td><td><b>Port numbers</b> (right application) + <b>reliability</b> (TCP / UDP)</td><td>Connects but data corrupted, lost, or out of order</td></tr>
+    <tr><td><b>5 — Session</b></td><td>Open / maintain / close sessions (handled by apps or TCP today)</td><td>— (mostly historical)</td></tr>
+    <tr><td><b>6 — Presentation</b></td><td>Format translation, compression, <b>encryption</b> — TLS lives here</td><td>Connects but content garbled / decryption fails</td></tr>
+    <tr><td><b>7 — Application</b></td><td>Protocols apps speak: HTTP, SMTP, DNS</td><td>Network fine but server returns errors</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>The TCP/IP Model — What We Actually Run</h2><div class="rule"></div></div>
+  <p>OSI is a reference; the Internet actually implements the <b>TCP/IP model</b> (DARPA, 1970s) with <b>4 layers</b>:</p>
+  <div class="fig">
+    <div class="grid2">
+      <div>
+        <table class="t">
+          <tr><th>OSI</th><th style="width:14px"></th><th>TCP/IP</th></tr>
+          <tr><td>7 Application<br>6 Presentation<br>5 Session</td><td>→</td><td><b>Application</b><br><span class="small">HTTP, DNS, SMTP, SSH…</span></td></tr>
+          <tr><td>4 Transport</td><td>→</td><td><b>Transport</b><br><span class="small">TCP, UDP</span></td></tr>
+          <tr><td>3 Network</td><td>→</td><td><b>Internet</b><br><span class="small">IP, ICMP</span></td></tr>
+          <tr><td>2 Data Link<br>1 Physical</td><td>→</td><td><b>Network Access</b><br><span class="small">Ethernet, Wi-Fi, LTE…</span></td></tr>
+        </table>
+      </div>
+      <div>
+        <div class="card acc"><div class="c-title">How we use both</div>We <b>implement</b> TCP/IP protocols, but <b>talk about</b> them with OSI layer numbers — "that's a Layer 3 problem", "an L2 switch". This course does the same: study TCP/IP protocols, use OSI numbers as vocabulary.</div>
+        <div class="callout co-info"><div class="tag">Note</div><div class="body">Some textbooks show TCP/IP as 5 layers (Application, Transport, Network, Data Link, Physical) — identical ideas, just with the Network Access layer split apart. Know both counts: <b>4 or 5</b>.</div></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Encapsulation &amp; Decapsulation</h2><div class="rule"></div></div>
+  <p><b>Encapsulation</b> (sender): going <b>DOWN</b> the stack, each layer adds its own header around the data from above. <b>Decapsulation</b> (receiver): going <b>UP</b>, each layer strips its header and passes the payload up.</p>
+  <div class="fig">
+    <svg viewBox="0 0 680 300" width="100%">
+      <defs><marker id="d" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0284c7"/></marker></defs>
+      <!-- sender side -->
+      <text x="14" y="18" class="svg-t t-accd" font-size="11" font-weight="800">SENDER — encapsulate ↓</text>
+      <g>
+        <rect x="14" y="30" width="280" height="34" rx="7" class="f-accl" stroke="#0284c7" stroke-width="1.3"/>
+        <text x="154" y="51" class="svg-t" font-size="9.6" text-anchor="middle" fill="#2d6a8f">"GET / HTTP/1.1 Host: google.com"</text>
+        <rect x="14" y="82" width="280" height="40" rx="7" fill="none" stroke="#0284c7" stroke-width="1.3"/>
+        <rect x="14" y="82" width="112" height="40" rx="7" fill="#0284c7"/>
+        <text x="70" y="99" class="svg-t" font-size="8.6" text-anchor="middle" fill="#fff" font-weight="700">TCP header</text>
+        <text x="70" y="111" class="svg-t" font-size="7.8" text-anchor="middle" fill="#e0f2fe">SrcPort 52341 · DstPort 80 · Seq 1001</text>
+        <text x="210" y="106" class="svg-t" font-size="9" text-anchor="middle" fill="#2d6a8f">HTTP data</text>
+        <rect x="14" y="140" width="280" height="40" rx="7" fill="none" stroke="#0284c7" stroke-width="1.3"/>
+        <rect x="14" y="140" width="130" height="40" rx="7" fill="#0369a1"/>
+        <text x="79" y="157" class="svg-t" font-size="8.6" text-anchor="middle" fill="#fff" font-weight="700">IP header</text>
+        <text x="79" y="169" class="svg-t" font-size="7.8" text-anchor="middle" fill="#e0f2fe">Src 192.168.1.5 · Dst 142.250.195.46</text>
+        <text x="220" y="164" class="svg-t" font-size="9" text-anchor="middle" fill="#2d6a8f">TCP segment</text>
+        <rect x="14" y="198" width="280" height="40" rx="7" fill="none" stroke="#0284c7" stroke-width="1.3"/>
+        <rect x="14" y="198" width="104" height="40" rx="7" fill="#2d6a8f"/>
+        <text x="66" y="215" class="svg-t" font-size="8.6" text-anchor="middle" fill="#fff" font-weight="700">ETH header</text>
+        <text x="66" y="227" class="svg-t" font-size="7.6" text-anchor="middle" fill="#e0f2fe">Dst MAC: Router · Src: Laptop</text>
+        <text x="200" y="222" class="svg-t" font-size="9" text-anchor="middle" fill="#2d6a8f">IP packet</text>
+        <rect x="250" y="208" width="44" height="20" rx="5" fill="#94a3b8"/>
+        <text x="272" y="222" class="svg-t" font-size="8" text-anchor="middle" fill="#fff" font-weight="700">FCS</text>
+        <rect x="14" y="256" width="280" height="30" rx="7" fill="#1e293b"/>
+        <text x="154" y="275" class="svg-t" font-size="9.4" text-anchor="middle" fill="#e2e8f0">⚡ bits on the wire / Wi-Fi radio</text>
+      </g>
+      <g stroke="#0284c7" stroke-width="2">
+        <line x1="154" y1="66" x2="154" y2="78" marker-end="url(#d)"/>
+        <line x1="154" y1="124" x2="154" y2="136" marker-end="url(#d)"/>
+        <line x1="154" y1="182" x2="154" y2="194" marker-end="url(#d)"/>
+        <line x1="154" y1="240" x2="154" y2="252" marker-end="url(#d)"/>
+      </g>
+      <!-- labels -->
+      <g class="svg-t" font-size="8.4" fill="#0369a1" font-weight="700">
+        <text x="302" y="100">L4 adds ports + seq → SEGMENT</text>
+        <text x="302" y="158">L3 adds IPs → PACKET</text>
+        <text x="302" y="216">L2 adds MACs → FRAME</text>
+      </g>
+      <!-- receiver -->
+      <text x="470" y="18" class="svg-t t-accd" font-size="11" font-weight="800">RECEIVER — decapsulate ↑</text>
+      <g class="svg-t" font-size="9.4" fill="#334155">
+        <text x="470" y="66">Frame arrives → L2 strips ETH header →</text>
+        <text x="470" y="82">→ L3 strips IP header →</text>
+        <text x="470" y="98">→ L4 strips TCP header →</text>
+        <text x="470" y="114">→ L7 reads the HTTP request ✓</text>
+      </g>
+      <rect x="470" y="136" width="196" height="86" rx="8" fill="#eef6fb" stroke="#0284c7" stroke-width="1.3"/>
+      <text x="568" y="154" class="svg-t" font-size="9" font-weight="800" fill="#2d6a8f" text-anchor="middle">KEY INSIGHT</text>
+      <text x="478" y="170" class="svg-t" font-size="8.6" fill="#334155">Each layer treats everything above</text>
+      <text x="478" y="183" class="svg-t" font-size="8.6" fill="#334155">as opaque payload — just bytes to</text>
+      <text x="478" y="196" class="svg-t" font-size="8.6" fill="#334155">carry. That's why HTTP can change</text>
+      <text x="478" y="209" class="svg-t" font-size="8.6" fill="#334155">without touching TCP.</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 2.</b> Encapsulation wraps data in layer-headers going down; decapsulation unwraps it going up.</div>
+  </div>
+  <div class="callout co-warn"><div class="tag">Why?</div><div class="body"><b>Why is the Ethernet destination the router, not Google?</b> Ethernet only works on the <i>local</i> network. Your laptop doesn't know (and can't use) Google's MAC address — so L2 delivers to the router, which forwards the IP packet to the next hop and builds a <b>brand-new Ethernet frame</b> for that leg.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Headers, Payload &amp; the Nesting Rule</h2><div class="rule"></div></div>
+  <div class="pdu">
+    <span style="flex:0 0 34%; background:#0369a1; color:#fff">HEADER<span class="lbl">control information</span></span>
+    <span style="flex:0 0 66%; background:#e0f2fe; color:#2d6a8f">PAYLOAD<span class="lbl">the actual data being sent</span></span>
+  </div>
+  <p>Typical header contents: source &amp; destination addresses (at that layer's scope), payload length, payload type/protocol, sequence numbers, error-check values, control flags (SYN, ACK…).</p>
+  <div class="card acc"><div class="c-title">The nesting rule</div>
+    <span class="mono" style="font-size:11px">Ethernet payload = IP packet &nbsp;→&nbsp; IP payload = TCP segment &nbsp;→&nbsp; TCP payload = HTTP message &nbsp;→&nbsp; HTTP payload = the webpage HTML</span>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>Frames vs Packets vs Segments</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Term</th><th>OSI Layer</th><th>Protocol</th><th>Address type</th><th>Scope</th></tr>
+    <tr><td><b>Segment</b></td><td>L4 — Transport</td><td>TCP / UDP</td><td>Port numbers</td><td>End-to-end (process → process)</td></tr>
+    <tr><td><b>Packet</b></td><td>L3 — Network</td><td>IP</td><td>IP addresses</td><td>Host-to-host (across all networks)</td></tr>
+    <tr><td><b>Frame</b></td><td>L2 — Data Link</td><td>Ethernet / Wi-Fi</td><td>MAC addresses</td><td>Local network (one single hop)</td></tr>
+  </table>
+  <h3>What changes at each router hop?</h3>
+  <div class="fig">
+    <svg viewBox="0 0 680 210" width="100%">
+      <defs><marker id="h" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#64748b"/></marker></defs>
+      <g class="svg-t" font-weight="800" font-size="10.5" fill="#2d6a8f">
+        <text x="110" y="24" text-anchor="middle">HOP 1 · Laptop → Home Router</text>
+        <text x="410" y="24" text-anchor="middle">HOP 2 · Router → ISP Router</text>
+        <text x="110" y="134" text-anchor="middle">HOP 3 · ISP → Google</text>
+      </g>
+      <!-- hop1 -->
+      <rect x="16" y="36" width="200" height="26" rx="6" fill="#eef6fb" stroke="#0284c7"/>
+      <text x="116" y="53" class="svg-t" font-size="8.8" text-anchor="middle" fill="#2d6a8f">ETH: Laptop MAC → Router LAN MAC</text>
+      <rect x="16" y="70" width="200" height="26" rx="6" fill="#c9dfec" stroke="#0369a1"/>
+      <text x="116" y="87" class="svg-t" font-size="8.8" text-anchor="middle" fill="#2d6a8f">IP: 192.168.1.5 → 142.250.195.46</text>
+      <text x="116" y="112" class="svg-t" font-size="8.4" text-anchor="middle" fill="#64748b">MACs: laptop ↔ router (local)</text>
+      <!-- hop2 -->
+      <rect x="316" y="36" width="200" height="26" rx="6" fill="#fef2f2" stroke="#ef4444"/>
+      <text x="416" y="53" class="svg-t" font-size="8.8" text-anchor="middle" fill="#991b1b">ETH: Router WAN MAC → ISP MAC ← REPLACED</text>
+      <rect x="316" y="70" width="200" height="26" rx="6" fill="#c9dfec" stroke="#0369a1"/>
+      <text x="416" y="87" class="svg-t" font-size="8.8" text-anchor="middle" fill="#2d6a8f">IP: 192.168.1.5 → 142.250.195.46 — same</text>
+      <text x="416" y="112" class="svg-t" font-size="8.4" text-anchor="middle" fill="#64748b">new frame built for this leg</text>
+      <!-- hop3 -->
+      <rect x="16" y="146" width="200" height="26" rx="6" fill="#fef2f2" stroke="#ef4444"/>
+      <text x="116" y="163" class="svg-t" font-size="8.8" text-anchor="middle" fill="#991b1b">ETH: ISP MAC → Google MAC ← REPLACED</text>
+      <rect x="16" y="180" width="200" height="26" rx="6" fill="#c9dfec" stroke="#0369a1"/>
+      <text x="116" y="197" class="svg-t" font-size="8.8" text-anchor="middle" fill="#2d6a8f">IP: 192.168.1.5 → 142.250.195.46 — same</text>
+      <!-- arrow -->
+      <line x1="530" y1="90" x2="640" y2="90" stroke="#64748b" stroke-width="2" marker-end="url(#h)"/>
+      <text x="585" y="70" class="svg-t" font-size="9" text-anchor="middle" fill="#334155" font-weight="700">every hop:</text>
+      <text x="585" y="84" class="svg-t" font-size="9" text-anchor="middle" fill="#dc2626" font-weight="800">MACs change</text>
+      <text x="585" y="98" class="svg-t" font-size="9" text-anchor="middle" fill="#0369a1" font-weight="800">IPs stay</text>
+      <text x="585" y="112" class="svg-t" font-size="8.2" text-anchor="middle" fill="#64748b">(until NAT)</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 3.</b> The frame is rebuilt at every hop; the IP packet persists end-to-end.</div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><b>The rule:</b> MAC addresses change at every router hop; IP addresses stay the same source→destination (unless NAT — Lecture 11). Expect this as a true/false or short answer.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Ethernet Frame — Byte by Byte</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="pdu" style="font-size:10px">
+      <span style="flex:0 0 14%; background:#64748b; color:#fff">8 B<span class="lbl">Preamble+SFD</span></span>
+      <span style="flex:0 0 15%; background:#0369a1; color:#fff">6 B<span class="lbl">Dest MAC</span></span>
+      <span style="flex:0 0 15%; background:#2d6a8f; color:#fff">6 B<span class="lbl">Src MAC</span></span>
+      <span style="flex:0 0 11%; background:#0284c7; color:#fff">2 B<span class="lbl">EtherType</span></span>
+      <span style="flex:0 0 34%; background:#c9dfec; color:#2d6a8f">46–1500 B<span class="lbl">Payload (usually an IP packet)</span></span>
+      <span style="flex:0 0 11%; background:#94a3b8; color:#fff">4 B<span class="lbl">FCS</span></span>
+    </div>
+    <div class="legend"><span class="l-item"><span class="sw" style="background:#c9dfec"></span>Min frame 64 B · Max frame 1518 B</span><span class="l-item"><span class="sw" style="background:#64748b"></span>Preamble syncs the receiver's clock</span></div>
+    <div class="fig-cap"><b>Figure 4.</b> Ethernet II frame layout.</div>
+  </div>
+  <ul>
+    <li><b>Preamble (7 B) + SFD (1 B)</b> — synchronise the receiver's clock; SFD marks "real data starts after me".</li>
+    <li><b>Destination MAC (6 B)</b> — <span class="k">Unicast</span> one device · <span class="k">FF:FF:FF:FF:FF:FF</span> broadcast to all · multicast for groups.</li>
+    <li><b>Source MAC (6 B)</b> — sender's hardware address.</li>
+    <li><b>EtherType (2 B)</b> — what's inside the payload, so the receiver knows which upper protocol to hand it to.</li>
+    <li><b>Payload (46–1500 B)</b> — smaller data is zero-padded up to 46 B (64-byte minimum enables collision detection on old shared Ethernet).</li>
+    <li><b>FCS (4 B)</b> — CRC over the whole frame. Mismatch → frame <b>silently discarded</b> (no retransmit — recovery is TCP's job, L4).</li>
+  </ul>
+  <table class="t small">
+    <tr><th>EtherType</th><th>Payload</th><th>EtherType</th><th>Payload</th></tr>
+    <tr><td class="mono">0x0800</td><td>IPv4</td><td class="mono">0x86DD</td><td>IPv6</td></tr>
+    <tr><td class="mono">0x0806</td><td>ARP</td><td class="mono">0x8100</td><td>VLAN-tagged frame</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">8</div><h2>MTU &amp; IP Fragmentation</h2><div class="rule"></div></div>
+  <p><b>MTU — Maximum Transmission Unit:</b> the largest payload a single frame can carry on a link.</p>
+  <table class="t small">
+    <tr><th>Link type</th><th>MTU</th><th>Link type</th><th>MTU</th></tr>
+    <tr><td>Ethernet</td><td class="mono">1500 bytes</td><td>Jumbo frames (data centre)</td><td class="mono">up to 9000 B</td></tr>
+    <tr><td>Wi-Fi (in practice)</td><td class="mono">1500 B (Ethernet-compatible)</td><td>Loopback interface</td><td class="mono">65536 B</td></tr>
+  </table>
+  <p>If an IP packet exceeds a link's MTU, the IP layer <b>fragments</b> it. Example — 4500-byte payload over Ethernet (MTU 1500):</p>
+  <div class="fig">
+    <div class="pdu" style="margin-top:4px">
+      <span style="flex:0 0 12%; background:#0369a1; color:#fff">IP Hdr<span class="lbl">Frag 1</span></span><span style="flex:0 0 21%; background:#c9dfec; color:#2d6a8f">bytes 0–1479<span class="lbl">offset 0 · MF=1</span></span>
+      <span style="flex:0 0 12%; background:#0369a1; color:#fff">IP Hdr<span class="lbl">Frag 2</span></span><span style="flex:0 0 21%; background:#c9dfec; color:#2d6a8f">bytes 1480–2959<span class="lbl">offset 185 · MF=1</span></span>
+      <span style="flex:0 0 12%; background:#0369a1; color:#fff">IP Hdr<span class="lbl">Frag 3</span></span><span style="flex:0 0 21%; background:#c9dfec; color:#2d6a8f">bytes 2960–4439<span class="lbl">offset 370 · MF=1</span></span>
+      <span style="flex:0 0 12%; background:#0369a1; color:#fff">IP Hdr<span class="lbl">Frag 4</span></span><span style="flex:0 0 21%; background:#c9dfec; color:#2d6a8f">bytes 4440–4499<span class="lbl">offset 555 · MF=0 (last)</span></span>
+    </div>
+    <div class="fig-cap"><b>Figure 5.</b> One 4500-byte IP packet → four fragments (1480 bytes of data each + 20-byte header).</div>
+  </div>
+  <table class="t small">
+    <tr><th>IP header field</th><th>Purpose in fragmentation</th></tr>
+    <tr><td><b>Identification</b></td><td>All fragments of the same original packet share this 16-bit ID</td></tr>
+    <tr><td><b>Fragment Offset</b></td><td>Where this fragment starts, in <b>8-byte units</b> (13-bit field × 8 covers 65,528 B — enough for max IP size 65,535 B)</td></tr>
+    <tr><td><b>MF — More Fragments</b></td><td>1 = more pieces coming · 0 = last fragment</td></tr>
+    <tr><td><b>DF — Don't Fragment</b></td><td>1 = router must DROP (not fragment) if too large — used by PMTUD</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Rules</div><div class="body">Fragmentation can happen at <b>any router</b> whose MTU is smaller — but <b>reassembly happens ONLY at the final destination</b>. Lose even one fragment → destination discards all of them → source TCP retransmits the whole thing.</div></div>
+  <h3>Path MTU Discovery (PMTUD) — how modern systems avoid fragmentation</h3>
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Send with DF = 1</div><div class="sd">Packets marked "don't fragment".</div></div></div>
+    <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Small-MTU router drops &amp; reports</div><div class="sd">It returns ICMP <i>"Fragmentation Needed, MTU = X"</i>.</div></div></div>
+    <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Sender adjusts &amp; retries</div><div class="sd">Repeats until the size fits the whole path — no fragments ever sent.</div></div></div>
+  </div>
+  <div class="callout co-warn"><div class="tag">Gotcha</div><div class="body">Firewalls that block <b>all ICMP</b> break PMTUD: large transfers (email attachments, image uploads) mysteriously hang while small ones succeed. Classic interview/troubleshooting trap.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">9</div><h2>MAC Addresses &amp; ARP</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="pdu" style="max-width:520px; margin-left:auto; margin-right:auto">
+      <span style="flex:0 0 50%; background:#0369a1; color:#fff">AA:BB:CC<span class="lbl">OUI — 3 bytes, IEEE-assigned manufacturer ID</span></span>
+      <span style="flex:0 0 50%; background:#0ea5e9; color:#fff">DD:EE:FF<span class="lbl">Device ID — 3 bytes, unique per NIC</span></span>
+    </div>
+    <div class="fig-cap"><b>Figure 6.</b> A MAC address = 48 bits, written as six hex pairs: OUI (who made it) + device ID.</div>
+  </div>
+  <div class="code-head"><span>find your MAC address</span><span>terminal</span></div>
+  <div class="code"><span class="ch"># Linux / macOS</span>
+<span class="fn">ip link show</span>          <span class="ch"># look for "link/ether"</span>
+<span class="ch"># Windows</span>
+<span class="fn">ipconfig /all</span>         <span class="ch"># look for "Physical Address"</span></div>
+  <table class="t small">
+    <tr><th>Property</th><th>Detail</th></tr>
+    <tr><td><b>Scope</b></td><td>Local only — meaningful within one network segment (one hop)</td></tr>
+    <tr><td><b>Uniqueness</b></td><td>Globally unique in theory (manufacturer-assigned)</td></tr>
+    <tr><td><b>Spoofing</b></td><td>Changeable in software — modern phones randomise MAC per network for privacy</td></tr>
+    <tr><td><b>Purpose</b></td><td>Layer-2 delivery identification on the local network</td></tr>
+  </table>
+  <h3>ARP — bridging IP to MAC (preview of Lecture 11)</h3>
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Broadcast question</div><div class="sd">PC (192.168.1.5) shouts on the LAN (Dst MAC FF:FF:FF:FF:FF:FF): <i>"WHO HAS 192.168.1.1? TELL 192.168.1.5"</i></div></div></div>
+    <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Unicast answer</div><div class="sd">Router: <i>"192.168.1.1 is at 11:22:33:44:55:66"</i></div></div></div>
+    <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Cache it</div><div class="sd">PC stores the mapping in its ARP cache and uses that MAC in future frames.</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">10</div><h2>Complete Example — One Web Request, Layer by Layer</h2><div class="rule"></div></div>
+  <p><b>Scenario:</b> laptop 192.168.1.5 sends <span class="mono">GET /</span> to google.com (142.250.195.46).</p>
+  <table class="t small">
+    <tr><th style="width:26px">Step</th><th>Layer</th><th>What is added / done</th></tr>
+    <tr><td>1</td><td>L7 Application</td><td>Browser creates <span class="mono">GET / HTTP/1.1 Host: google.com</span></td></tr>
+    <tr><td>2</td><td>L4 Transport</td><td>TCP adds <span class="mono">SrcPort 52341 · DstPort 80 · Seq 1001 · ACK</span></td></tr>
+    <tr><td>3</td><td>L3 Network</td><td>IP adds <span class="mono">Src 192.168.1.5 · Dst 142.250.195.46 · TTL 64</span></td></tr>
+    <tr><td>4</td><td>L2 Data Link</td><td>Ethernet <span class="mono">DstMAC Router · SrcMAC Laptop · EtherType 0x0800 · FCS</span></td></tr>
+    <tr><td>5</td><td>L1 Physical</td><td>NIC transmits as electrical / radio signals</td></tr>
+    <tr><td>6</td><td>At each router</td><td>Strip ETH → read Dst IP → routing-table lookup → build <b>new</b> frame for next hop (TTL −1)</td></tr>
+    <tr><td>7</td><td>At Google</td><td>Full decapsulation → HTTP request read → response travels back in reverse</td></tr>
+  </table>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 2 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Protocol</b> = agreed format + sequence + actions. Layers give modularity, reuse, isolation.</div>
+    <div class="cheat-item"><b>OSI 7</b>: PDNTSPA — Physical, Data Link, Network, Transport, Session, Presentation, Application.</div>
+    <div class="cheat-item"><b>TCP/IP 4</b>: App (5+6+7) · Transport (4) · Internet (3) · Network Access (1+2). Implement TCP/IP, speak OSI.</div>
+    <div class="cheat-item"><b>Encapsulation ↓</b>: headers added each layer going down; <b>decapsulation ↑</b>: stripped going up.</div>
+    <div class="cheat-item"><b>Segment</b> L4 ports · <b>Packet</b> L3 IPs · <b>Frame</b> L2 MACs.</div>
+    <div class="cheat-item"><b>Ethernet frame</b>: Preamble 8 + DstMAC 6 + SrcMAC 6 + EtherType 2 + Payload 46–1500 + FCS 4 = 64–1518 B.</div>
+    <div class="cheat-item"><b>MTU 1500 B</b>; fragmentation at any router; <b>reassembly only at destination</b>; one lost fragment → all retransmitted.</div>
+    <div class="cheat-item"><b>MAC 48-bit</b> (OUI+device), local scope, changes every hop; IPs stay end-to-end (until NAT).</div>
+    <div class="cheat-item"><b>ARP</b>: broadcast "who has IP X?" → unicast reply → cache.</div>
+    <div class="cheat-item">EtherType <b>0x0800</b> IPv4 · <b>0x0806</b> ARP · <b>0x86DD</b> IPv6.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Which OSI layer converts packets into frames for local delivery?<ul class="opts"><li>a) Network</li><li>b) Data Link</li><li>c) Transport</li><li>d) Physical</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>The EtherType value <span class="mono">0x0806</span> indicates the payload is:<ul class="opts"><li>a) IPv4</li><li>b) IPv6</li><li>c) ARP</li><li>d) VLAN tag</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>A 4500-byte IP payload over Ethernet (MTU 1500) is split into:<ul class="opts"><li>a) 2 fragments</li><li>b) 3 fragments</li><li>c) 4 fragments</li><li>d) 5 fragments</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>Where are fragmented IP packets reassembled?<ul class="opts"><li>a) At the next router</li><li>b) At every router</li><li>c) Only at the final destination</li><li>d) At the nearest DNS server</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>Which fields change at every router hop (no NAT)?<ul class="opts"><li>a) Src &amp; Dst IP</li><li>b) Src &amp; Dst MAC and TTL</li><li>c) Ports</li><li>d) EtherType only</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Define protocol. Why does networking use a layered architecture? (3 benefits)</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>List the 7 OSI layers in order (both directions) with the mnemonic, and map them to the 4 TCP/IP layers.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Draw and label the Ethernet frame with byte sizes. What is the FCS used for, and what happens on mismatch?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>Differentiate frame, packet and segment (layer, address type, scope).</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>What is MTU? Why does Ethernet enforce a 46-byte minimum payload?</div>
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Short</span>Explain the structure of a MAC address (OUI vs device ID) and its scope. Why do MACs change at each hop while IPs don't?</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Trace encapsulation AND decapsulation for an HTTP GET from laptop (192.168.1.5) to google.com (142.250.195.46), naming every header added and every data-unit name at each layer. Explain why the Ethernet destination is the router's MAC.</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Numerical</span>An IP packet with 4500 bytes of payload crosses an MTU-1500 link. Compute the number of fragments, each fragment's data range, fragment offset (in 8-byte units), and MF bit values. Which IP header fields make reassembly possible?</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>Explain Path MTU Discovery. Why does a firewall that blocks all ICMP cause "large uploads hang, small ones succeed"?</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Long</span>"Each layer treats the layer above as opaque payload." Explain this design principle and how it enables TCP to run unchanged over Wi-Fi, Ethernet or 4G.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — Data Link (L2) frames carry packets locally.</div>
+    <div class="a-item"><b>A2.</b> c — 0x0806 = ARP (0x0800 = IPv4, 0x86DD = IPv6).</div>
+    <div class="a-item"><b>A3.</b> c — ceil(4500/1480) = 4 fragments of ≤1480 data bytes.</div>
+    <div class="a-item"><b>A4.</b> c — reassembly only at the final destination.</div>
+    <div class="a-item"><b>A5.</b> b — MACs rewritten each hop; TTL decremented; IPs stay.</div>
+    <div class="a-item"><b>A6.</b> Agreed rules: format, sequence, actions. Benefits: modularity, reusability, isolation (any three with one-line explanations).</div>
+    <div class="a-item"><b>A7.</b> PDNTSPA; 5+6+7→Application, 4→Transport, 3→Internet, 1+2→Network Access.</div>
+    <div class="a-item"><b>A8.</b> Figure 4 layout; FCS = CRC error check; mismatch → silent discard (TCP recovers later).</div>
+    <div class="a-item"><b>A9.</b> Segment/TCP/ports/end-to-end · Packet/IP/IPs/host-to-host · Frame/Ethernet/MACs/one hop.</div>
+    <div class="a-item"><b>A10.</b> Largest frame payload per link (1500 B Ethernet). 46-byte min → 64-byte min frame for collision detection on legacy shared Ethernet; smaller data is padded.</div>
+    <div class="a-item"><b>A11.</b> 48-bit: 3-byte OUI (IEEE, manufacturer) + 3-byte device ID. Local scope only — each hop's frame is freshly built for that local leg; IPs provide the global end-to-end identity.</div>
+    <div class="a-item"><b>A13.</b> 4 fragments: 0–1479 (off 0, MF1), 1480–2959 (off 185, MF1), 2960–4439 (off 370, MF1), 4440–4499 (off 555, MF0). Identification + offset + MF enable reassembly.</div>
+    <div class="a-item"><b>A12/A14/A15.</b> Use Figures 2 &amp; 5 and the PMTUD steps — graders award labelled diagrams and the "opaque payload" principle stated explicitly.</div>
+  </div>
+  <div class="card acc" style="margin-top:14px;">
+    <div class="c-title">Wrap-Up — carry these into Lecture 3</div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="callout co-info"><span class="tag">Encapsulation</span><div class="body">Every layer wraps the layer above: <b>Data → Segment → Packet → Frame</b>. Decapsulation reverses it at the receiver.</div></div>
+      <div class="callout co-info"><span class="tag">Two addresses</span><div class="body">IPs identify hosts <b>end-to-end</b> and never change; MACs deliver on the <b>local link</b> and are rewritten at every hop.</div></div>
+      <div class="callout co-warn"><span class="tag">MTU</span><div class="body">1500 B Ethernet limit → packets larger than MTU−20 are <b>fragmented</b>; the receiver reassembles using ID + offset + MF.</div></div>
+      <div class="callout co-ok"><span class="tag">Why layers win</span><div class="body">TCP runs unchanged over Wi-Fi, Ethernet or 4G because each layer treats the one above as <b>opaque payload</b>.</div></div>
+    </div>
+    <div class="callout co-exam" style="margin-top:9px;"><span class="tag">Next</span><div class="body"><b>Lecture 3 — IP Addresses &amp; Subnetting I:</b> we open the IP header's addressing half — octets, network vs host bits, and your first subnet masks.</div></div>
+  </div>
+</div>
+
+</body>
+</html>

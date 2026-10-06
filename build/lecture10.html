@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 10 — TCP, UDP and Socket Programming</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#0369a1; --acc-d:#0d4a70; --acc-l:#e9f3f9; --acc-m:#bfdceb; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">10</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>TCP, UDP and<br>Socket Programming</h1>
+    <div class="tagline">The transport layer: ports and multiplexing, TCP vs UDP, the three-way handshake and four-way close, reliability, flow control, and real socket code in Java and C++.</div>
+    <div class="chips"><span class="chip">Ports &amp; Multiplexing</span><span class="chip">UDP — 8-byte header</span><span class="chip">TCP — 4 guarantees</span><span class="chip">3-Way Handshake</span><span class="chip">4-Way Close · TIME_WAIT</span><span class="chip">ACK &amp; Retransmission</span><span class="chip">Sliding Window</span><span class="chip">Sockets — Java &amp; C++</span><span class="chip">Client-Server Model</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>How one machine runs a hundred apps at once (ports), the full TCP-vs-UDP decision framework with real applications, byte-level handshake and close sequences, how TCP recovers losses (ACKs, timeouts, fast retransmit), how the sliding window prevents flooding, and working TCP/UDP client-server code in Java and C++ you can run tonight.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Code · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Explain the transport layer's role: <b>ports, multiplexing, demultiplexing</b></li>
+    <li>Compare <b>TCP and UDP</b> and pick correctly per application</li>
+    <li>Trace the <b>three-way handshake</b> and <b>four-way close</b> (with TIME_WAIT)</li>
+    <li>Explain TCP's <b>reliability</b>: ACKs, RTO, fast retransmit; and <b>flow control</b>: sliding window</li>
+    <li>Write <b>TCP/UDP client-server programs</b> in Java or C++</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Transport Layer</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Ports</div><div class="mm-children"><div class="mm-child">16-bit: 0–65535</div><div class="mm-child">well-known · registered · ephemeral</div><div class="mm-child">socket = IP:port</div></div></div>
+    <div class="mm-branch"><div class="mm-node">UDP</div><div class="mm-children"><div class="mm-child">connectionless · 8 B header</div><div class="mm-child">no guarantees, fastest</div><div class="mm-child">DNS · video · games · VoIP</div></div></div>
+    <div class="mm-branch"><div class="mm-node">TCP</div><div class="mm-children"><div class="mm-child">reliable · ordered · checked</div><div class="mm-child">flow controlled</div><div class="mm-child">HTTP · SSH · DB</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Handshake</div><div class="mm-children"><div class="mm-child">SYN → SYN-ACK → ACK</div><div class="mm-child">random seq numbers</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Close</div><div class="mm-children"><div class="mm-child">FIN · ACK · FIN · ACK</div><div class="mm-child">TIME_WAIT = 2×MSL</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Reliability</div><div class="mm-children"><div class="mm-child">byte numbering + ACKs</div><div class="mm-child">timeout retransmit</div><div class="mm-child">3 dup-ACKs → fast retransmit</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Flow control</div><div class="mm-children"><div class="mm-child">receiver advertises window</div><div class="mm-child">window 0 = pause</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Sockets</div><div class="mm-children"><div class="mm-child">SOCK_STREAM / DGRAM</div><div class="mm-child">bind · listen · accept · connect</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Ports — Many Apps, One Machine</h2><div class="rule"></div></div>
+  <p>IP delivers to a <b>machine</b>; a machine runs many programs. A <b>port</b> (16-bit, 0–65535) identifies the process. Full address = <span class="k">IP : port</span> (e.g. 192.168.1.5:52341). <b>Multiplexing</b> tags outgoing packets with source ports; <b>demultiplexing</b> delivers incoming packets to the right process by destination port.</p>
+  <table class="t small">
+    <tr><th>Range</th><th>Name</th><th>Use</th><th>Range</th><th>Name</th><th>Use</th></tr>
+    <tr><td>0–1023</td><td>Well-known</td><td>HTTP 80 · HTTPS 443 · SSH 22 · DNS 53 · SMTP 25</td><td>1024–49151</td><td>Registered</td><td>MySQL 3306 · Redis 6379 · Postgres 5432</td></tr>
+    <tr><td>49152–65535</td><td>Ephemeral</td><td>Client-side temporary ports</td><td colspan="3">— the pair (src port, dst port) identifies the conversation</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>UDP — Fast and Fearless</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="pdu" style="max-width:480px; margin-left:auto; margin-right:auto">
+      <span style="flex:1; background:#0d4a70; color:#fff">Src Port<span class="lbl">16 bit</span></span>
+      <span style="flex:1; background:#0369a1; color:#fff">Dst Port<span class="lbl">16 bit</span></span>
+      <span style="flex:1; background:#3b8ec4; color:#fff">Length<span class="lbl">16 bit</span></span>
+      <span style="flex:1; background:#7fb4d9; color:#0d4a70">Checksum<span class="lbl">16 bit</span></span>
+    </div>
+    <div class="fig-cap"><b>Figure 1.</b> The entire UDP header — 8 bytes. Then data. That's it.</div>
+  </div>
+  <table class="t">
+    <tr><th>Application</th><th>Why UDP</th></tr>
+    <tr><td><b>DNS</b></td><td>single request-response; latency matters more than ceremony</td></tr>
+    <tr><td><b>Video streaming</b></td><td>an old frame is worthless — skip &gt; wait</td></tr>
+    <tr><td><b>Online gaming</b></td><td>position updates are time-critical; retransmitting stale ones hurts</td></tr>
+    <tr><td><b>VoIP calls</b></td><td>one lost packet = a tiny glitch, not a paused call</td></tr>
+    <tr><td><b>DHCP</b></td><td>needs broadcast; TCP can't broadcast</td></tr>
+    <tr><td><b>QUIC / HTTP-3</b></td><td>UDP base + custom reliability in user space</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>TCP — Reliable, Ordered, Controlled</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">TCP's four guarantees</div><b>Reliable</b> (data arrives or sender knows) · <b>In-order</b> (bytes arrive as sent) · <b>Error-checked</b> (bad segments retransmitted) · <b>Flow-controlled</b> (never drowns the receiver).</div>
+    <div class="card"><div class="c-title">Key header fields</div>Src/Dst Port (16b) · <b>Sequence</b> (32b — byte position!) · <b>Acknowledgment</b> (32b — next byte expected) · <b>Flags</b> (SYN ACK FIN RST PSH URG) · <b>Window</b> (16b — receiver buffer) · Checksum.</div>
+  </div>
+  <h3>Three-way handshake (connection setup)</h3>
+  <div class="fig">
+    <svg viewBox="0 0 680 190" width="100%">
+      <defs><marker id="t" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0369a1"/></marker></defs>
+      <rect x="40" y="6" width="90" height="26" rx="7" fill="#0d4a70"/><text x="85" y="23" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">CLIENT</text>
+      <rect x="540" y="6" width="90" height="26" rx="7" fill="#0d4a70"/><text x="585" y="23" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">SERVER</text>
+      <line x1="85" y1="36" x2="85" y2="180" stroke="#bfdceb" stroke-width="1.5"/>
+      <line x1="585" y1="36" x2="585" y2="180" stroke="#bfdceb" stroke-width="1.5"/>
+      <g stroke="#0369a1" stroke-width="2.2">
+        <line x1="90" y1="58" x2="578" y2="58" marker-end="url(#t)"/>
+        <line x1="580" y1="102" x2="92" y2="102" marker-end="url(#t)"/>
+        <line x1="90" y1="146" x2="578" y2="146" marker-end="url(#t)"/>
+      </g>
+      <g class="svg-t" font-size="10" font-weight="700" fill="#0d4a70">
+        <text x="100" y="52">① SYN  seq=x</text>
+        <text x="330" y="44" fill="#64748b" font-size="8.8">"I want to talk; my numbering starts at x"</text>
+        <text x="360" y="96" text-anchor="end">② SYN-ACK  seq=y, ack=x+1</text>
+        <text x="330" y="118" fill="#64748b" font-size="8.8">"Agreed — mine starts at y; got yours, expect x+1"</text>
+        <text x="100" y="140">③ ACK  seq=x+1, ack=y+1</text>
+        <text x="330" y="164" fill="#64748b" font-size="8.8">"Got yours too — ESTABLISHED both sides"</text>
+      </g>
+      <rect x="240" y="168" width="200" height="18" rx="9" fill="#e9f3f9" stroke="#0369a1" stroke-width="1"/>
+      <text x="340" y="181" class="svg-t" font-size="9" font-weight="800" fill="#0d4a70" text-anchor="middle">data can now flow (1 full RTT spent)</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 2.</b> SYN → SYN-ACK → ACK. Why random initial sequence numbers? So stale packets from an old connection can't masquerade as new ones.</div>
+  </div>
+  <h3>Four-way close (connection teardown)</h3>
+  <div class="fig">
+    <svg viewBox="0 0 680 210" width="100%">
+      <rect x="40" y="6" width="90" height="26" rx="7" fill="#0d4a70"/><text x="85" y="23" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">CLIENT</text>
+      <rect x="540" y="6" width="90" height="26" rx="7" fill="#0d4a70"/><text x="585" y="23" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">SERVER</text>
+      <line x1="85" y1="36" x2="85" y2="200" stroke="#bfdceb" stroke-width="1.5"/>
+      <line x1="585" y1="36" x2="585" y2="200" stroke="#bfdceb" stroke-width="1.5"/>
+      <g stroke="#0369a1" stroke-width="2">
+        <line x1="90" y1="54" x2="578" y2="54" marker-end="url(#t)"/>
+        <line x1="580" y1="92" x2="92" y2="92" marker-end="url(#t)"/>
+        <line x1="580" y1="130" x2="92" y2="130" marker-end="url(#t)"/>
+        <line x1="90" y1="168" x2="578" y2="168" marker-end="url(#t)"/>
+      </g>
+      <g class="svg-t" font-size="10" font-weight="700" fill="#0d4a70">
+        <text x="100" y="48">① FIN  seq=m — "I'm done sending"</text>
+        <text x="360" y="86" text-anchor="end">② ACK m+1 — "got it (I may still send)"</text>
+        <text x="360" y="124" text-anchor="end">③ FIN  seq=n — "now I'm done too"</text>
+        <text x="100" y="162">④ ACK n+1 — connection closed</text>
+      </g>
+      <text x="340" y="196" class="svg-t" font-size="9.2" fill="#64748b" text-anchor="middle" font-weight="700">client waits in TIME_WAIT (2×MSL ≈ 60 s): final ACK might need re-sending; old duplicates must die</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 3.</b> Each side closes independently — FIN/ACK in each direction.</div>
+  </div>
+  <h3>Reliability — ACKs and retransmission</h3>
+  <div class="code"><span class="out">Sender:</span>  [seq 1–1000]  [seq 1001–2000]  [seq 2001–3000]
+<span class="out">Receiver:</span>      [ACK 1001]       [ACK 2001]        ✗ LOST
+<span class="out">Then:</span>      [ACK 3001 arrives anyway…]
+Receiver keeps repeating: [ACK 2001] [ACK 2001] [ACK 2001]   ← <span class="kw">3 duplicate ACKs</span>
+Sender: <span class="fn">FAST RETRANSMIT seq 2001 immediately</span> (no waiting for timeout)</div>
+  <div class="grid2">
+    <div class="card"><div class="c-title">Two retransmission triggers</div><b>1. RTO timeout</b> — no ACK within the retransmission timeout → resend. <b>2. Fast retransmit</b> — 3 duplicate ACKs → resend immediately (much faster).</div>
+    <div class="card acc"><div class="c-title">Flow control — sliding window</div>Every ACK carries a <b>window size</b> = "send up to N unacknowledged bytes". Big buffer → window 65535 → pipeline freely. Full buffer → <b>window 0 → sender pauses</b> (zero window).</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Socket Programming — Java &amp; C++</h2><div class="rule"></div></div>
+  <p>A <b>socket</b> is the OS's endpoint abstraction: <span class="k">AF_INET</span> (IPv4) × <span class="k">SOCK_STREAM</span> (TCP) or <span class="k">SOCK_DGRAM</span> (UDP).</p>
+  <div class="fig">
+    <div class="code" style="max-width:560px; margin-left:auto; margin-right:auto"><span class="out">SERVER                            CLIENT</span>
+<span class="fn">socket()</span>                        <span class="fn">socket</span>()
+<span class="fn">bind</span>(('0.0.0.0', 8080))
+<span class="fn">listen</span>(backlog)
+<span class="fn">accept</span>() ─────── 3-way ──────── <span class="fn">connect</span>()
+<span class="fn">recv</span>()  ◀────── data ────────── <span class="fn">send</span>()
+<span class="fn">send</span>()  ─────── reply ─────────▶ <span class="fn">recv</span>()
+<span class="fn">close</span>() ─────── 4-way ────────▶ <span class="fn">close</span>()</div>
+    <div class="fig-cap"><b>Figure 4.</b> The client-server lifecycle — every socket program follows this dance.</div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="code-head"><span>tcp echo server</span><span>JAVA</span></div>
+  <div class="code">import java.io.*; import java.net.*;
+
+try (ServerSocket server = new ServerSocket(8080)) {   <span class="ch">// bind + listen</span>
+    System.out.println(&quot;listening on 8080&quot;);
+    while (true) {
+        Socket c = server.accept();                    <span class="ch">// blocks — handshake happens here</span>
+        var in  = new BufferedReader(
+                      new InputStreamReader(c.getInputStream()));
+        var out = new PrintWriter(c.getOutputStream(), true);
+        String line = in.readLine();
+        out.println(&quot;Echo: &quot; + line);
+        c.close();                                     <span class="ch">// 4-way close</span>
+    }
+}</div>
+    <div class="code-head"><span>tcp echo server</span><span>C++</span></div>
+  <div class="code">int server = socket(AF_INET, SOCK_STREAM, 0);
+int yes = 1;
+setsockopt(server, SOL_SOCKET, SO_REUSEADDR, &amp;yes, sizeof(yes));
+sockaddr_in addr{AF_INET, htons(8080), {INADDR_ANY}};
+bind(server, (sockaddr*)&amp;addr, sizeof(addr));
+listen(server, 5);                                    <span class="ch">// backlog of 5</span>
+printf(&quot;listening on 8080\n&quot;);
+
+while (true) {
+    int c = accept(server, nullptr, nullptr);         <span class="ch">// blocks — handshake happens here</span>
+    char buf[1024] = {0};
+    read(c, buf, sizeof(buf));
+    string reply = string(&quot;Echo: &quot;) + buf;
+    write(c, reply.c_str(), reply.size());
+    close(c);                                         <span class="ch">// 4-way close</span>
+}</div>
+    </div>
+    <div>
+      <div class="code-head"><span>tcp client + udp pair</span><span>JAVA</span></div>
+  <div class="code"><span class="ch">// TCP client — the handshake happens inside connect()</span>
+try (Socket client = new Socket(&quot;127.0.0.1&quot;, 8080)) {
+    var out = new PrintWriter(client.getOutputStream(), true);
+    var in  = new BufferedReader(new InputStreamReader(client.getInputStream()));
+    out.println(&quot;Hello!&quot;);
+    System.out.println(in.readLine());
+}                                                     <span class="ch">// 4-way close</span>
+
+<span class="ch">// UDP server — no listen/accept at all</span>
+try (DatagramSocket u = new DatagramSocket(9090)) {
+    byte[] buf = new byte[1024];
+    DatagramPacket p = new DatagramPacket(buf, buf.length);
+    u.receive(p);                                     <span class="ch">// + sender address</span>
+    u.send(new DatagramPacket(&quot;got it&quot;.getBytes(), 6,
+                              p.getAddress(), p.getPort()));
+}
+
+<span class="ch">// UDP client</span>
+try (DatagramSocket uc = new DatagramSocket()) {
+    uc.send(new DatagramPacket(&quot;ping&quot;.getBytes(), 4,
+              InetAddress.getByName(&quot;127.0.0.1&quot;), 9090));
+    byte[] buf = new byte[1024];
+    DatagramPacket r = new DatagramPacket(buf, buf.length);
+    uc.receive(r);
+    System.out.println(new String(r.getData(), 0, r.getLength()));
+}</div>
+    <div class="code-head"><span>tcp client + udp pair</span><span>C++</span></div>
+  <div class="code"><span class="ch">// TCP client — the handshake happens inside connect()</span>
+int c = socket(AF_INET, SOCK_STREAM, 0);
+sockaddr_in a{AF_INET, htons(8080), {inet_addr(&quot;127.0.0.1&quot;)}};
+connect(c, (sockaddr*)&amp;a, sizeof(a));                 <span class="ch">// &lt;- handshake</span>
+write(c, &quot;Hello!&quot;, 6);
+char buf[1024] = {0};
+read(c, buf, sizeof(buf));
+close(c);                                             <span class="ch">// 4-way close</span>
+
+<span class="ch">// UDP server — no listen/accept at all</span>
+int u = socket(AF_INET, SOCK_DGRAM, 0);
+sockaddr_in ua{AF_INET, htons(9090), {INADDR_ANY}};
+bind(u, (sockaddr*)&amp;ua, sizeof(ua));
+char buf[1024]; sockaddr_in from; socklen_t fl = sizeof(from);
+recvfrom(u, buf, sizeof(buf), 0, (sockaddr*)&amp;from, &amp;fl);   <span class="ch">// + sender addr</span>
+sendto(u, &quot;got it&quot;, 6, 0, (sockaddr*)&amp;from, fl);
+
+<span class="ch">// UDP client</span>
+int uc = socket(AF_INET, SOCK_DGRAM, 0);
+sockaddr_in dst{AF_INET, htons(9090), {inet_addr(&quot;127.0.0.1&quot;)}};
+sendto(uc, &quot;ping&quot;, 4, 0, (sockaddr*)&amp;dst, sizeof(dst));
+recvfrom(uc, buf, sizeof(buf), 0, nullptr, nullptr);</div>
+    </div>
+  </div>
+  <div class="callout co-info"><div class="tag">Note</div><div class="body"><span class="mono">recv()</span> returning <b>0 bytes</b> on a TCP socket = the other side closed cleanly (this is how you detect FIN). To serve many clients at once, wrap each accepted client in a <b>thread</b> (or use asyncio selectors).</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>TCP vs UDP — the Decision Table</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Feature</th><th>TCP</th><th>UDP</th></tr>
+    <tr><td>Connection</td><td>Connection-oriented (handshake)</td><td>Connectionless — just send</td></tr>
+    <tr><td>Reliability</td><td class="good">Guaranteed (ACK + retransmit)</td><td class="bad">None — may lose, dup, reorder</td></tr>
+    <tr><td>Ordering</td><td class="good">Guaranteed</td><td class="bad">Not guaranteed</td></tr>
+    <tr><td>Error detection</td><td>Checksum + retransmit</td><td>Checksum only (detects, drops)</td></tr>
+    <tr><td>Header size</td><td>20+ bytes</td><td><b>8 bytes</b></td></tr>
+    <tr><td>Speed / overhead</td><td>Slower</td><td>Faster</td></tr>
+    <tr><td>Flow control</td><td>Yes (window)</td><td>No</td></tr>
+    <tr><td>Use cases</td><td>HTTP(S), SSH, email, databases</td><td>DNS, streaming, games, VoIP, DHCP, QUIC</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body"><i>"A live game leaderboard updates every 100 ms — TCP or UDP?"</i> <b>UDP</b>: a missed update is stale in 100 ms anyway; retransmission adds nothing but delay. <i>"File download?"</i> <b>TCP</b> — every byte must arrive, in order.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 10 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Port</b> = 16-bit process ID; socket = IP:port; mux/demux by ports.</div>
+    <div class="cheat-item"><b>UDP</b>: 8-B header, connectionless, no guarantees — DNS, video, VoIP, games, DHCP, QUIC.</div>
+    <div class="cheat-item"><b>TCP</b>: reliable, ordered, error-checked, flow-controlled — HTTP, SSH, DBs.</div>
+    <div class="cheat-item"><b>Handshake</b>: SYN → SYN-ACK → ACK (1 RTT); random ISNs defeat old-packet confusion.</div>
+    <div class="cheat-item"><b>Close</b>: FIN, ACK, FIN, ACK; TIME_WAIT = 2×MSL for lost-ACK safety.</div>
+    <div class="cheat-item"><b>Retransmit</b>: RTO timeout OR 3 duplicate ACKs (fast retransmit).</div>
+    <div class="cheat-item"><b>Window</b>: receiver-advertised unacked byte budget; 0 = pause.</div>
+    <div class="cheat-item"><b>Sockets</b>: TCP bind→listen→accept ↔ connect; UDP just bind→recvfrom/sendto.</div>
+    <div class="cheat-item"><b>recv() == 0</b> → peer closed. Well-known: 22 · 53 · 80 · 443 · 3306.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>The UDP header is exactly:<ul class="opts"><li>a) 20 bytes</li><li>b) 8 bytes</li><li>c) 4 bytes</li><li>d) 16 bytes</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>In the three-way handshake, packet 2 carries flags:<ul class="opts"><li>a) SYN only</li><li>b) ACK only</li><li>c) SYN+ACK</li><li>d) FIN+ACK</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>Fast retransmit triggers after:<ul class="opts"><li>a) 1 lost packet</li><li>b) RTO expiry</li><li>c) 3 duplicate ACKs</li><li>d) window = 0</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>A window size of 0 means:<ul class="opts"><li>a) connection closed</li><li>b) sender must pause (receiver buffer full)</li><li>c) maximum speed</li><li>d) UDP fallback</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>Which socket call exists ONLY on the TCP server side?<ul class="opts"><li>a) socket()</li><li>b) bind()</li><li>c) listen()/accept()</li><li>d> sendto()</li></ul></div>
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">MCQ</span>TIME_WAIT lasts 2×MSL mainly to:<ul class="opts"><li>a) speed up closing</li><li>b) let a lost final ACK be answered by FIN-retransmit, and old duplicates die</li><li>c) free the port instantly</li><li>d) encrypt remaining data</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>What problem do ports solve? Define multiplexing and demultiplexing.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Why does TCP randomise initial sequence numbers?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>Why does the close need FOUR messages while open needs three?</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>Difference between timeout retransmission and fast retransmit — which is faster and why?</div>
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Short</span>What does the Window Size field accomplish? What happens at 0?</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Short</span>Your recv() returns b'' — what happened, and what should your code do?</div>
+  </div>
+  <h3>C. Long Answer / Code (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Draw and explain the three-way handshake and four-way close with sequence/acknowledgment numbers at every step. Include why TIME_WAIT exists.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Code</span>Write a TCP echo server and its client in Java or C++ (any correct form). Annotate where the handshake and close occur.</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Code</span>Write a UDP server-client pair where the client sends a message and prints the server's reply. Why is there no accept()?</div>
+    <div class="q"><span class="q-no">Q16.</span><span class="q-tag">Long</span>"TCP for correctness, UDP for speed." Justify with six applications (three each) and the mechanism differences behind the choice.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — 4 fields × 2 bytes.</div>
+    <div class="a-item"><b>A2.</b> c — server's SYN+ACK.</div>
+    <div class="a-item"><b>A3.</b> c — three dup-ACKs beat the timer.</div>
+    <div class="a-item"><b>A4.</b> b — zero window = pause until reopened.</div>
+    <div class="a-item"><b>A5.</b> c — listen/accept are TCP-server-only; UDP has bind→recvfrom.</div>
+    <div class="a-item"><b>A6.</b> b — reliability of the close + duplicate expiry.</div>
+    <div class="a-item"><b>A7.</b> Many processes per host; mux = tag outgoing with src port; demux = deliver by dst port.</div>
+    <div class="a-item"><b>A8.</b> Prevents old-connection segments being accepted as valid data in a new connection (also raises spoofing difficulty).</div>
+    <div class="a-item"><b>A9.</b> Each direction closes independently (half-close): FIN+ACK each way = 4 messages; open needs only agreement = 3.</div>
+    <div class="a-item"><b>A10.</b> Timeout = wait for a full RTO; fast retransmit fires on 3 dup-ACKs, usually far sooner.</div>
+    <div class="a-item"><b>A11.</b> Receiver advertises free buffer → bounds unacked in-flight bytes; 0 pauses sender.</div>
+    <div class="a-item"><b>A12.</b> Peer sent FIN (closed cleanly) — close your socket / stop reading.</div>
+    <div class="a-item"><b>A14/A15.</b> Compare with the §4 code: server thread-per-client with accept() in a loop; UDP has no accept because there is no connection — recvfrom returns the sender's address for the reply.</div>
+    <div class="a-item"><b>A16.</b> TCP: web, file transfer, DB (every byte, in order). UDP: DNS, streaming, gaming (freshness &gt; completeness). Mechanisms: ACK/retransmit/ordering/window vs none.</div>
+  </div>
+  <div class="card acc" style="margin-top:14px;">
+    <div class="c-title">Wrap-Up — carry these into Lecture 11</div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="callout co-info"><span class="tag">TCP vs UDP</span><div class="body">TCP = connection, <b>reliable, ordered</b> bytes. UDP = connectionless, 8-byte header, fast and fire-and-forget. Pick per-app, not "better".</div></div>
+      <div class="callout co-info"><span class="tag">Ports</span><div class="body">0–1023 well-known, up to 49151 registered, rest ephemeral. Socket = <b>IP:port</b>; 80/443/53/22 worth memorising.</div></div>
+      <div class="callout co-warn"><span class="tag">Handshake &amp; teardown</span><div class="body">SYN → SYN-ACK → ACK opens (seq x, x+1, y, y+1); FIN ×2 each direction closes. TIME_WAIT = 2×MSL.</div></div>
+      <div class="callout co-ok"><span class="tag">Reliability engine</span><div class="body">ACKs, retransmit (fast on 3 dup-ACKs), flow window from the receiver, congestion window from the network.</div></div>
+    </div>
+    <div class="callout co-exam" style="margin-top:9px;"><span class="tag">Next</span><div class="body"><b>Lecture 11 — NAT, DHCP &amp; Local Networks:</b> how your home network actually joins the Internet — private IPs, DORA, and the NAT table in your router.</div></div>
+  </div>
+</div>
+
+</body>
+</html>

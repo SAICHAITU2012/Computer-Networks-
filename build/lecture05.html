@@ -1,0 +1,431 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 5 — Graph Algorithms for Networking</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#e11d48; --acc-d:#9c2c4c; --acc-l:#fbeff1; --acc-m:#f0d0d8; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">05</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Graph Algorithms<br>for Networking</h1>
+    <div class="tagline">Networks are graphs. Learn BFS, DFS and Dijkstra on a real network — and see exactly which routing protocol is powered by each algorithm.</div>
+    <div class="chips"><span class="chip">Graph Representation</span><span class="chip">Adjacency List · Matrix</span><span class="chip">BFS — Queue</span><span class="chip">DFS — Stack</span><span class="chip">Cycle Detection</span><span class="chip">Dijkstra</span><span class="chip">Shortest Path</span><span class="chip">RIP · OSPF mapping</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>A complete, traced tour of the three algorithms behind Internet routing: representing a network as a weighted graph, BFS for fewest hops (→ RIP), DFS for topology exploration and loop detection, and Dijkstra for least-cost paths (→ OSPF) — with Java and C++ code, step-by-step traces, and a full Dijkstra table you can reproduce in the exam.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Code · Traces · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Model a network as a <b>weighted graph</b> and choose the right representation</li>
+    <li>Implement and <b>trace BFS</b> for hop-count shortest paths</li>
+    <li>Implement and <b>trace DFS</b> for topology exploration and cycle detection</li>
+    <li>Apply <b>Dijkstra</b> for least-cost routing and reconstruct the path</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Graphs for Networking</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Model</div><div class="mm-children"><div class="mm-child">routers = vertices</div><div class="mm-child">links = weighted edges</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Represent</div><div class="mm-children"><div class="mm-child">adjacency list (sparse ✓)</div><div class="mm-child">adjacency matrix (dense)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">BFS</div><div class="mm-children"><div class="mm-child">queue · layer by layer</div><div class="mm-child">fewest HOPS → RIP</div></div></div>
+    <div class="mm-branch"><div class="mm-node">DFS</div><div class="mm-children"><div class="mm-child">stack / recursion</div><div class="mm-child">cycles → routing loops</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Dijkstra</div><div class="mm-children"><div class="mm-child">min-heap · greedy</div><div class="mm-child">least COST → OSPF</div><div class="mm-child">no negative weights</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Networks as Graphs</h2><div class="rule"></div></div>
+  <p>A graph G = (V, E): <b>V</b> = routers (vertices/nodes), <b>E</b> = links (edges), and each edge carries a <b>weight</b> = link cost (latency, bandwidth-derived cost, or hop cost). Our running example — a 5-city network:</p>
+  <div class="fig">
+    <svg viewBox="0 0 680 268" width="100%">
+      <defs><marker id="g" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#e11d48"/></marker></defs>
+      <!-- edges -->
+      <g stroke="#e11d48" stroke-width="2.2">
+        <line x1="340" y1="44" x2="170" y2="118"/>
+        <line x1="340" y1="44" x2="510" y2="118"/>
+        <line x1="172" y1="132" x2="508" y2="132"/>
+        <line x1="164" y1="142" x2="164" y2="208"/>
+        <line x1="516" y1="142" x2="516" y2="208"/>
+        <line x1="186" y1="222" x2="494" y2="222"/>
+      </g>
+      <!-- weights -->
+      <g class="svg-t" font-size="11" font-weight="800" fill="#9c2c4c">
+        <text x="240" y="70">5</text>
+        <text x="440" y="70">3</text>
+        <text x="340" y="126">2</text>
+        <text x="146" y="180">8</text>
+        <text x="532" y="180">2</text>
+        <text x="340" y="216">4</text>
+      </g>
+      <!-- nodes -->
+      <g>
+        <circle cx="340" cy="36" r="26" fill="#9c2c4c"/>
+        <text x="340" y="41" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">Mumbai</text>
+        <circle cx="160" cy="130" r="26" fill="#e11d48"/>
+        <text x="160" y="135" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">Delhi</text>
+        <circle cx="520" cy="130" r="26" fill="#e11d48"/>
+        <text x="520" y="135" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">Hyderabad</text>
+        <circle cx="160" cy="224" r="26" fill="#e11d48"/>
+        <text x="160" y="229" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">Chennai</text>
+        <circle cx="520" cy="224" r="26" fill="#e11d48"/>
+        <text x="520" y="229" class="svg-t" font-size="10" font-weight="800" fill="#fff" text-anchor="middle">Bangalore</text>
+      </g>
+      <text x="640" y="16" class="svg-t" font-size="9" fill="#64748b" text-anchor="end">edge weight = link cost</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 1.</b> The running example graph used for every trace in this lecture.</div>
+  </div>
+  <div class="grid2">
+    <div>
+      <div class="code-head"><span>adjacency list — sparse graphs</span><span>JAVA</span></div>
+  <div class="code"><span class="ch">// Edge = (neighbour, cost). Map from node -&gt; its edges.</span>
+Map&lt;String, List&lt;Edge&gt;&gt; graph = new HashMap&lt;&gt;();
+graph.put(&quot;Mumbai&quot;,    List.of(new Edge(&quot;Delhi&quot;, 5), new Edge(&quot;Hyderabad&quot;, 3)));
+graph.put(&quot;Delhi&quot;,     List.of(new Edge(&quot;Mumbai&quot;, 5), new Edge(&quot;Hyderabad&quot;, 2),
+                               new Edge(&quot;Chennai&quot;, 8)));
+graph.put(&quot;Hyderabad&quot;, List.of(new Edge(&quot;Mumbai&quot;, 3), new Edge(&quot;Delhi&quot;, 2),
+                               new Edge(&quot;Bangalore&quot;, 2)));
+graph.put(&quot;Chennai&quot;,   List.of(new Edge(&quot;Delhi&quot;, 8), new Edge(&quot;Bangalore&quot;, 4)));
+graph.put(&quot;Bangalore&quot;, List.of(new Edge(&quot;Hyderabad&quot;, 2), new Edge(&quot;Chennai&quot;, 4)));
+<span class="ch">// Edge is a tiny record:  record Edge(String to, int w) {}</span></div>
+    <div class="code-head"><span>adjacency list — sparse graphs</span><span>C++</span></div>
+  <div class="code"><span class="ch">// Edge = (neighbour, cost). Map from node -&gt; its edges.</span>
+map&lt;string, vector&lt;pair&lt;string,int&gt;&gt;&gt; graph;
+graph[&quot;Mumbai&quot;]    = {{&quot;Delhi&quot;, 5}, {&quot;Hyderabad&quot;, 3}};
+graph[&quot;Delhi&quot;]     = {{&quot;Mumbai&quot;, 5}, {&quot;Hyderabad&quot;, 2}, {&quot;Chennai&quot;, 8}};
+graph[&quot;Hyderabad&quot;] = {{&quot;Mumbai&quot;, 3}, {&quot;Delhi&quot;, 2}, {&quot;Bangalore&quot;, 2}};
+graph[&quot;Chennai&quot;]   = {{&quot;Delhi&quot;, 8}, {&quot;Bangalore&quot;, 4}};
+graph[&quot;Bangalore&quot;] = {{&quot;Hyderabad&quot;, 2}, {&quot;Chennai&quot;, 4}};</div>
+    </div>
+    <div>
+      <div class="code-head"><span>adjacency matrix — dense graphs</span><span>JAVA</span></div>
+  <div class="code"><span class="ch">//        M    D    H    C    B</span>
+int INF = Integer.MAX_VALUE;                 <span class="ch">// &quot;no direct link&quot;</span>
+int[][] m = {
+  { 0,   5,   3, INF, INF },   <span class="ch">// Mumbai</span>
+  { 5,   0,   2,   8, INF },   <span class="ch">// Delhi</span>
+  { 3,   2,   0, INF,   2 },   <span class="ch">// Hyderabad</span>
+  { INF, 8, INF,   0,   4 },   <span class="ch">// Chennai</span>
+  { INF, INF, 2,   4,   0 }    <span class="ch">// Bangalore</span>
+};</div>
+    <div class="code-head"><span>adjacency matrix — dense graphs</span><span>C++</span></div>
+  <div class="code"><span class="ch">//        M    D    H    C    B</span>
+const int INF = 1e9;                         <span class="ch">// &quot;no direct link&quot;</span>
+vector&lt;vector&lt;int&gt;&gt; m = {
+  { 0,   5,   3, INF, INF },   <span class="ch">// Mumbai</span>
+  { 5,   0,   2,   8, INF },   <span class="ch">// Delhi</span>
+  { 3,   2,   0, INF,   2 },   <span class="ch">// Hyderabad</span>
+  { INF, 8, INF,   0,   4 },   <span class="ch">// Chennai</span>
+  { INF, INF, 2,   4,   0 }    <span class="ch">// Bangalore</span>
+};</div>
+      <div class="callout co-info" style="margin-top:8px"><div class="tag">Choice</div><div class="body">The Internet is <b>sparse</b> (each router connects to a few others) → adjacency <b>list</b> wins: O(V+E) space vs O(V²) for the matrix.</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>BFS — Breadth-First Search</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">What BFS finds</div>The <b>minimum hop-count</b> path from source to every reachable node. Uses a <b>queue (FIFO)</b>; explores layer by layer: 1 hop away, then 2 hops, then 3…</div>
+    <div class="card"><div class="c-title">Limitation</div>BFS minimises <b>hops, not cost</b>. A 1-hop path costing 100 beats a 3-hop path costing 3 — wrong for cost-based routing. For cost, use <b>Dijkstra</b> (§4).</div>
+  </div>
+  <div class="code-head"><span>bfs with path tracking</span><span>JAVA</span></div>
+  <div class="code">static List&lt;String&gt; bfsPath(Map&lt;String, List&lt;Edge&gt;&gt; g,
+                            String start, String end) {
+    Deque&lt;List&lt;String&gt;&gt; queue = new ArrayDeque&lt;&gt;();
+    Set&lt;String&gt; visited = new HashSet&lt;&gt;();
+    queue.add(List.of(start)); visited.add(start);
+    while (!queue.isEmpty()) {
+        List&lt;String&gt; path = queue.poll();      <span class="ch">// FIFO — the queue is the whole trick</span>
+        String node = path.get(path.size() - 1);
+        if (node.equals(end)) return path;     <span class="ch">// first visit = fewest hops</span>
+        for (Edge e : g.get(node)) {
+            if (visited.add(e.to())) {
+                List&lt;String&gt; next = new ArrayList&lt;&gt;(path);
+                next.add(e.to());
+                queue.add(next);               <span class="ch">// carry the path alongside</span>
+            }
+        }
+    }
+    return null;                               <span class="ch">// end unreachable from start</span>
+}</div>
+    <div class="code-head"><span>bfs with path tracking</span><span>C++</span></div>
+  <div class="code">vector&lt;string&gt; bfsPath(map&lt;string, vector&lt;pair&lt;string,int&gt;&gt;&gt;&amp; g,
+                       string start, string end) {
+    queue&lt;vector&lt;string&gt;&gt; q;
+    set&lt;string&gt; visited;
+    q.push({start}); visited.insert(start);
+    while (!q.empty()) {
+        auto path = q.front(); q.pop();        <span class="ch">// FIFO — the queue is the whole trick</span>
+        string node = path.back();
+        if (node == end) return path;          <span class="ch">// first visit = fewest hops</span>
+        for (auto&amp; [nb, w] : g[node]) {
+            if (!visited.count(nb)) {
+                visited.insert(nb);
+                auto next = path; next.push_back(nb);
+                q.push(next);                  <span class="ch">// carry the path alongside</span>
+            }
+        }
+    }
+    return {};                                 <span class="ch">// end unreachable from start</span>
+}</div>
+  <div class="card acc">
+    <div class="c-title">Trace — BFS from Mumbai to Bangalore</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>Step</th><th>Visit</th><th>Queue after</th><th>Notes</th></tr>
+      <tr><td>init</td><td>—</td><td class="mono">[Mumbai]</td><td>visited = {Mumbai}</td></tr>
+      <tr><td>1</td><td>Mumbai</td><td class="mono">[Delhi, Hyderabad]</td><td>adds both neighbours</td></tr>
+      <tr><td>2</td><td>Delhi</td><td class="mono">[Hyderabad, Chennai]</td><td>Hyderabad already visited</td></tr>
+      <tr><td>3</td><td>Hyderabad</td><td class="mono">[Chennai, Bangalore]</td><td>adds Bangalore</td></tr>
+      <tr><td>4</td><td>Chennai</td><td class="mono">[Bangalore]</td><td>Bangalore already queued</td></tr>
+      <tr><td>5</td><td>Bangalore</td><td class="mono">[]</td><td><b>FOUND!</b> Path: Mumbai → Hyderabad → Bangalore (2 hops)</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>DFS — Depth-First Search</h2><div class="rule"></div></div>
+  <p>DFS explores <b>as deep as possible</b> along one branch before backtracking — a <b>stack</b> (or recursion) instead of a queue. Finds <i>a</i> path, not necessarily the shortest. O(V+E).</p>
+  <div class="code-head"><span>dfs — iterative + cycle detection</span><span>JAVA</span></div>
+  <div class="code">static List&lt;String&gt; dfsIterative(Map&lt;String, List&lt;Edge&gt;&gt; g, String start) {
+    Deque&lt;String&gt; stack = new ArrayDeque&lt;&gt;(List.of(start));
+    Set&lt;String&gt; visited = new HashSet&lt;&gt;();
+    List&lt;String&gt; order = new ArrayList&lt;&gt;();
+    while (!stack.isEmpty()) {
+        String node = stack.pop();             <span class="ch">// LIFO — go deep first</span>
+        if (visited.add(node)) {
+            order.add(node);
+            for (Edge e : g.get(node))
+                if (!visited.contains(e.to())) stack.push(e.to());
+        }
+    }
+    return order;
+}
+
+static boolean hasCycle(String node, Set&lt;String&gt; visited, Set&lt;String&gt; recStack,
+                        Map&lt;String, List&lt;Edge&gt;&gt; g) {
+    visited.add(node); recStack.add(node);     <span class="ch">// on the current path</span>
+    for (Edge e : g.get(node)) {
+        if (!visited.contains(e.to())) {
+            if (hasCycle(e.to(), visited, recStack, g)) return true;
+        } else if (recStack.contains(e.to())) {
+            return true;                       <span class="ch">// back edge = cycle!</span>
+        }
+    }
+    recStack.remove(node);                     <span class="ch">// leave the current path</span>
+    return false;
+}</div>
+    <div class="code-head"><span>dfs — iterative + cycle detection</span><span>C++</span></div>
+  <div class="code">vector&lt;string&gt; dfsIterative(map&lt;string, vector&lt;pair&lt;string,int&gt;&gt;&gt;&amp; g, string start) {
+    stack&lt;string&gt; st; st.push(start);
+    set&lt;string&gt; visited; vector&lt;string&gt; order;
+    while (!st.empty()) {
+        string node = st.top(); st.pop();      <span class="ch">// LIFO — go deep first</span>
+        if (!visited.count(node)) {
+            visited.insert(node); order.push_back(node);
+            for (auto&amp; [nb, w] : g[node])
+                if (!visited.count(nb)) st.push(nb);
+        }
+    }
+    return order;
+}
+
+bool hasCycle(const string&amp; node, set&lt;string&gt;&amp; visited, set&lt;string&gt;&amp; recStack,
+              map&lt;string, vector&lt;pair&lt;string,int&gt;&gt;&gt;&amp; g) {
+    visited.insert(node); recStack.insert(node);   <span class="ch">// on the current path</span>
+    for (auto&amp; [nb, w] : g[node]) {
+        if (!visited.count(nb)) {
+            if (hasCycle(nb, visited, recStack, g)) return true;
+        } else if (recStack.count(nb)) {
+            return true;                       <span class="ch">// back edge = cycle!</span>
+        }
+    }
+    recStack.erase(node);                      <span class="ch">// leave the current path</span>
+    return false;
+}</div>
+  <div class="grid2">
+    <div class="card acc">
+      <div class="c-title">Trace — DFS from Mumbai</div>
+      <div class="code" style="margin-top:4px"><span class="out">Visit Mumbai → push Delhi, Hyderabad</span>
+<span class="out">Pop Hyderabad → push Bangalore</span>
+<span class="out">Pop Bangalore → push Chennai</span>
+<span class="out">Pop Chennai → Delhi already seen</span>
+<span class="out">Pop Delhi → all neighbours visited</span>
+<span class="fn">Order: Mumbai → Hyderabad → Bangalore → Chennai → Delhi</span></div>
+    </div>
+    <div class="card"><div class="c-title">Network uses of DFS</div>
+      <ul><li><b>Topology discovery</b> — walk every reachable router</li><li><b>Cycle detection</b> — a cycle in the routing graph = a potential <b>routing loop</b> (packets circling forever)</li><li><b>Spanning-tree construction</b> (preview of Lecture 6 / STP)</li></ul>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Dijkstra — Minimum-Cost Paths</h2><div class="rule"></div></div>
+  <div class="grid3">
+    <div class="card acc"><div class="c-title">Idea</div><b>Greedy:</b> always expand the cheapest unfinished node; relax its neighbours. A <b>min-heap</b> serves the cheapest node fast.</div>
+    <div class="card acc"><div class="c-title">Guarantee</div>Optimal costs to ALL nodes — but only when <b>all edge weights ≥ 0</b> (why: Lecture 6).</div>
+    <div class="card acc"><div class="c-title">Complexity</div><b>O((V+E) log V)</b> with a binary heap — the price of the priority queue, worth it for correct costs.</div>
+  </div>
+  <div class="code-head"><span>dijkstra + path reconstruction</span><span>JAVA</span></div>
+  <div class="code">record PQ(int cost, String node) {}
+
+static Map&lt;String, Integer&gt; dijkstra(Map&lt;String, List&lt;Edge&gt;&gt; g, String src,
+                                     Map&lt;String, String&gt; prev) {
+    Map&lt;String, Integer&gt; dist = new HashMap&lt;&gt;();
+    g.keySet().forEach(n -&gt; dist.put(n, Integer.MAX_VALUE));
+    dist.put(src, 0);
+    var pq = new PriorityQueue&lt;PQ&gt;(Comparator.comparingInt(PQ::cost));
+    pq.add(new PQ(0, src));
+    while (!pq.isEmpty()) {
+        var top = pq.poll();
+        if (top.cost() &gt; dist.get(top.node())) continue;  <span class="ch">// stale entry — skip</span>
+        for (Edge e : g.get(top.node())) {
+            int nc = top.cost() + e.w();
+            if (nc &lt; dist.get(e.to())) {                   <span class="ch">// relax</span>
+                dist.put(e.to(), nc);
+                prev.put(e.to(), top.node());
+                pq.add(new PQ(nc, e.to()));
+            }
+        }
+    }
+    return dist;
+}
+<span class="ch">// path: follow prev[] from target back to source, then reverse.</span></div>
+    <div class="code-head"><span>dijkstra + path reconstruction</span><span>C++</span></div>
+  <div class="code">map&lt;string, int&gt; dijkstra(map&lt;string, vector&lt;pair&lt;string,int&gt;&gt;&gt;&amp; g, string src,
+                          map&lt;string, string&gt;&amp; prev) {
+    map&lt;string, int&gt; dist;
+    for (auto&amp; [n, _] : g) dist[n] = INT_MAX;
+    dist[src] = 0;
+    priority_queue&lt;pair&lt;int,string&gt;, vector&lt;pair&lt;int,string&gt;&gt;, greater&lt;&gt;&gt; pq;
+    pq.push({0, src});
+    while (!pq.empty()) {
+        auto [cost, node] = pq.top(); pq.pop();
+        if (cost &gt; dist[node]) continue;        <span class="ch">// stale entry — skip</span>
+        for (auto&amp; [nb, w] : g[node]) {
+            int nc = cost + w;
+            if (nc &lt; dist[nb]) {                <span class="ch">// relax</span>
+                dist[nb] = nc;
+                prev[nb] = node;
+                pq.push({nc, nb});
+            }
+        }
+    }
+    return dist;
+}
+<span class="ch">// path: follow prev[] from target back to source, then reverse.</span></div>
+  <div class="card acc">
+    <div class="c-title">Full trace — Dijkstra from Mumbai</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>Step</th><th>Expanded</th><th>Delhi</th><th>Hyderabad</th><th>Chennai</th><th>Bangalore</th><th>What happened</th></tr>
+      <tr><td>init</td><td>—</td><td>∞</td><td>∞</td><td>∞</td><td>∞</td><td>dist[Mumbai]=0</td></tr>
+      <tr><td>1</td><td><b>Mumbai</b> (0)</td><td>5</td><td>3</td><td>∞</td><td>∞</td><td>relax both links</td></tr>
+      <tr><td>2</td><td><b>Hyderabad</b> (3)</td><td>5</td><td>3</td><td>∞</td><td><b>5</b></td><td>3+2=5 &lt; ∞ → improve B</td></tr>
+      <tr><td>3</td><td><b>Delhi</b> (5)</td><td>5</td><td>3</td><td><b>13</b></td><td>5</td><td>5+8=13 → improve C</td></tr>
+      <tr><td>4</td><td><b>Bangalore</b> (5)</td><td>5</td><td>3</td><td><b>9</b></td><td>5</td><td>5+4=9 &lt; 13 → improve C</td></tr>
+      <tr><td>5</td><td><b>Chennai</b> (9)</td><td>5</td><td>3</td><td>9</td><td>5</td><td>nothing improves — done</td></tr>
+    </table>
+  </div>
+  <div class="code"><span class="out">Final shortest paths from Mumbai:</span>
+→ Delhi:     <span class="kw">5</span>  (direct)
+→ Hyderabad: <span class="kw">3</span>  (direct)
+→ Bangalore: <span class="kw">5</span>  (Mumbai → Hyderabad → Bangalore)
+→ Chennai:   <span class="kw">9</span>  (Mumbai → Hyderabad → Bangalore → Chennai)</div>
+  <div class="callout co-exam"><div class="tag">Numerical</div><div class="body">Reproduce this exact table in the exam: one row per expansion, always expand the current minimum, update only when strictly smaller. Chennai improved twice (13 → 9) — that's Dijkstra working.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>BFS vs DFS vs Dijkstra</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Feature</th><th>BFS</th><th>DFS</th><th>Dijkstra</th></tr>
+    <tr><td>Data structure</td><td>Queue (FIFO)</td><td>Stack / recursion</td><td>Min-heap</td></tr>
+    <tr><td>What it finds</td><td>Fewest hops</td><td>A path (any)</td><td>Minimum cost</td></tr>
+    <tr><td>Time complexity</td><td>O(V + E)</td><td>O(V + E)</td><td>O((V+E) log V)</td></tr>
+    <tr><td>Uses weights?</td><td class="bad">No — ignores</td><td class="bad">No — ignores</td><td class="good">Yes — required</td></tr>
+    <tr><td>Negative weights?</td><td>N/A</td><td>N/A</td><td class="bad">No — breaks (L6)</td></tr>
+    <tr><td>Network use</td><td>RIP (hop count)</td><td>Topology / loop detection</td><td>OSPF (link cost)</td></tr>
+  </table>
+  <div class="card acc"><div class="c-title">Algorithms → Real Protocols</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>Algorithm</th><th>Real protocol</th><th>Role</th></tr>
+      <tr><td>BFS (hop count)</td><td><b>RIP</b> — Routing Information Protocol</td><td>metric = hop count</td></tr>
+      <tr><td>Dijkstra</td><td><b>OSPF</b> — Open Shortest Path First</td><td>every router runs Dijkstra on the full topology</td></tr>
+      <tr><td>Bellman-Ford</td><td><b>RIP, BGP</b> (conceptually)</td><td>distributed updates — next lecture</td></tr>
+      <tr><td>MST algorithms</td><td><b>STP</b> — Spanning Tree Protocol</td><td>prevents Layer-2 loops</td></tr>
+    </table>
+  </div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 5 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Network = graph</b>: routers V, links E, weight = cost.</div>
+    <div class="cheat-item"><b>Adjacency list</b> for sparse real networks (O(V+E)); matrix for dense/fast-lookup (O(V²)).</div>
+    <div class="cheat-item"><b>BFS</b>: queue → fewest hops → <b>RIP</b>. Explores in layers; first arrival = shortest hop path.</div>
+    <div class="cheat-item"><b>DFS</b>: stack → deep-first; cycle detection (back-edge) = routing-loop finder; O(V+E).</div>
+    <div class="cheat-item"><b>Dijkstra</b>: min-heap, greedy, relax = "new cost &lt; known?"; O((V+E) log V); <b>no negative weights</b>.</div>
+    <div class="cheat-item">Mumbai example final costs: Delhi 5 · Hyd 3 · Bang 5 · Chennai 9.</div>
+    <div class="cheat-item">Stale-heap-entry check: <span class="mono">if cost &gt; dist[node]: continue</span>.</div>
+    <div class="cheat-item">Path reconstruction: follow <span class="mono">prev[]</span> from target back to source, then reverse.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Which data structure distinguishes BFS from DFS?<ul class="opts"><li>a) Heap vs array</li><li>b) Queue vs stack</li><li>c) Set vs list</li><li>d) Graph vs tree</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>Dijkstra fails on negative edge weights because it:<ul class="opts"><li>a) uses too much memory</li><li>b) finalises a node before a cheaper path through a negative edge appears</li><li>c) cannot use a heap</li><li>d) only works on trees</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>In the Figure-1 network, the minimum-cost path Delhi → Bangalore is:<ul class="opts"><li>a) Delhi → Hyderabad → Bangalore = 4</li><li>b) Delhi → Mumbai → Hyderabad → Bangalore = 10</li><li>c) Delhi → Chennai → Bangalore = 12</li><li>d) direct — no such link</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>Why is an adjacency list preferred for Internet-scale routing?<ul class="opts"><li>a) It sorts edges automatically</li><li>b) The Internet is sparse — O(V+E) storage beats O(V²)</li><li>c) Matrices cannot store weights</li><li>d) Lists enable BFS only</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>Which real protocol runs Dijkstra on a full topology map?<ul class="opts"><li>a) RIP</li><li>b) OSPF</li><li>c) ARP</li><li>d) DHCP</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Model a network as a weighted graph: what are vertices, edges, weights? Give two realistic weight choices.</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>When would you choose an adjacency matrix over a list? What is the space complexity of each?</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Why can't BFS give minimum-cost paths? Give the concrete 1-hop vs 3-hop example.</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>How does DFS detect a cycle? What does a cycle mean in a routing graph?</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>Why does Dijkstra's code check <span class="mono">if cost &gt; dist[node]: continue</span>?</div>
+  </div>
+  <h3>C. Long Answer / Numericals (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Numerical</span>Trace BFS from <b>Chennai</b> on Figure 1: give the visit order and the hop-distance of every node.</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Numerical</span>Run Dijkstra from <b>Delhi</b> on Figure 1. Show the table (one row per expansion), final costs to all nodes, and the shortest path Delhi → Chennai.</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Write Dijkstra's pseudocode and explain the role of the min-heap, the relaxation step, and the prev[] map. State time complexity.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>"Routing protocols are graph algorithms in disguise." Justify with the BFS↔RIP and Dijkstra↔OSPF mappings, and explain what a routing loop is using DFS cycle language.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — queue (FIFO) vs stack (LIFO).</div>
+    <div class="a-item"><b>A2.</b> b — greedy finalisation is wrong when a longer route later becomes cheaper.</div>
+    <div class="a-item"><b>A3.</b> a — 2 + 2 = 4 beats 10 and 12.</div>
+    <div class="a-item"><b>A4.</b> b — sparse → list is compact and fast.</div>
+    <div class="a-item"><b>A5.</b> b — OSPF; RIP is BFS-like hop count.</div>
+    <div class="a-item"><b>A6.</b> V = routers, E = links, weight = cost. Realistic: latency (ms) or bandwidth-derived cost (Lecture 8).</div>
+    <div class="a-item"><b>A7.</b> Dense graphs / constant-time edge lookup. List O(V+E); matrix O(V²).</div>
+    <div class="a-item"><b>A8.</b> BFS ignores weights — 1 hop costing 100 "wins" over 3 hops costing 3.</div>
+    <div class="a-item"><b>A9.</b> A back-edge to a node in the current recursion stack. In routing = packet-loop risk.</div>
+    <div class="a-item"><b>A10.</b> Lazy deletion: a better route may have popped first; stale heap entries must be skipped.</div>
+    <div class="a-item"><b>A11.</b> Order: Chennai → Delhi → Bangalore → Mumbai → Hyderabad. Hops: Delhi 1, Bangalore 1, Mumbai 2, Hyderabad 2.</div>
+    <div class="a-item"><b>A12.</b> Expansions: Delhi(0) → Mumbai(5), Hyderabad(2) → Bangalore(4) → Chennai(8)... full: Delhi 0, Hyderabad 2, Mumbai 5, Bangalore 4, Chennai 8; Delhi→Chennai = Delhi → Hyderabad → Bangalore → Chennai (cost 8).</div>
+    <div class="a-item"><b>A13.</b> See code block; heap = next-cheapest node in O(log V); relaxation = improve dist via neighbour; prev[] = rebuild path backwards.</div>
+    <div class="a-item"><b>A14.</b> RIP = distributed BFS (hop metric); OSPF = every router runs Dijkstra on the LSDB; a routing loop is exactly a cycle packets can traverse — detected/avoided via topology knowledge.</div>
+  </div>
+</div>
+
+</body>
+</html>

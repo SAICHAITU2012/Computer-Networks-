@@ -1,0 +1,32 @@
+
+===== PAGE 1 =====
+
+===== PAGE 2 =====
+
+===== PAGE 3 =====
+
+===== PAGE 4 =====
+
+===== PAGE 5 =====
+
+===== PAGE 6 =====
+
+===== PAGE 7 =====
+
+===== PAGE 8 =====
+Encapsulation is the process in which each networking layer wraps data from the layer above with the control 
+information required by its protocol.
+One layer's complete protocol data unit generally becomes data/payload carried by the layer below.
+
+===== PAGE 9 =====
+Application  <----------------> Application
+Transport    <----------------> Transport
+Network      <----------------> Network
+Data Link    <----------------> Data Link
+Sender                            Receiver
+
+===== PAGE 10 =====
+
+===== PAGE 11 =====
+
+===== PAGE 12 =====

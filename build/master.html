@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Computer Networks — Master Revision & Exam-Ready Book</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#4f46e5; --acc-d:#3b3878; --acc-l:#f0eefa; --acc-m:#d8d4ef; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">★</span><span class="of">MASTER EDITION</span></div>
+    <h1>Master Revision &amp;<br>Exam-Ready Book</h1>
+    <div class="tagline">The whole course in one volume: course map, formula vault, protocol tables, command arsenal, subnetting drills, a full mock exam with answer key, and a glossary of every term.</div>
+    <div class="chips"><span class="chip">Course Map</span><span class="chip">Formula Vault</span><span class="chip">Protocol Master Tables</span><span class="chip">Command Arsenal</span><span class="chip">Subnetting Drills</span><span class="chip">Mock Exam + Key</span><span class="chip">Glossary</span></div>
+    <div class="summary">
+      <div class="s-label">How to use this book</div>
+      <p><b>1 week out:</b> read the Course Map + every lecture's Rapid Revision Card. <b>3 days out:</b> drill the Formula Vault and Subnetting Drills daily. <b>1 day out:</b> sit the Mock Exam under time pressure, then check the key. <b>Morning of:</b> skim the Glossary and Command Arsenal. That's the whole system.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Covers Lectures 1–13 · Term 5 · SST</span></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>The Course Map — 13 Lectures at a Glance</h2><div class="rule"></div></div>
+  <table class="t small">
+    <tr><th>Lec</th><th>Topic</th><th>Core idea to never forget</th><th>Lec</th><th>Topic</th><th>Core idea to never forget</th></tr>
+    <tr><td>1</td><td>Intro &amp; Architecture</td><td>Edge vs core; packet switching wins by sharing; throughput = min link</td><td>8</td><td>Routing II</td><td>DV shares tables (RIP), LS shares maps (OSPF), BGP between ASes</td></tr>
+    <tr><td>2</td><td>Packets &amp; Layers</td><td>Encapsulation: headers added down, stripped up; MACs change, IPs don't</td><td>9</td><td>DNS &amp; HTTP</td><td>Cache chain → root→TLD→auth; HTTP stateless, cookies add memory</td></tr>
+    <tr><td>3</td><td>Subnetting I</td><td>Network = IP AND mask; usable = 2^h − 2; private ranges</td><td>10</td><td>TCP / UDP</td><td>SYN SYN-ACK ACK; reliability = ACKs + retransmit + window</td></tr>
+    <tr><td>4</td><td>Subnetting II</td><td>hosts+2 → 2^N → prefix; VLSM largest-first; NAT = port table</td><td>11</td><td>ARP·NAT·DHCP</td><td>DORA; broadcast Q / unicast A; NAT table = port discriminator</td></tr>
+    <tr><td>5</td><td>Graphs I</td><td>BFS=queue=hops (RIP); Dijkstra=heap=cost (OSPF)</td><td>12</td><td>Troubleshooting</td><td>Climb the OSI ladder; the toolset tells you where it breaks</td></tr>
+    <tr><td>6</td><td>Graphs II</td><td>Bellman-Ford survives negative edges; MST ↔ STP</td><td>13</td><td>The Journey</td><td>9 phases from click to pixels — every lecture appears once</td></tr>
+    <tr><td>7</td><td>Routing I</td><td>Longest Prefix Match; TTL −1 per hop; hop-by-hop</td><td colspan="3"></td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>The Formula Vault</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card acc">
+      <div class="c-title">Delay &amp; performance (L1, L5)</div>
+      <div class="code" style="margin-top:4px"><span class="out">d_nodal = d_proc + d_queue + d_trans + d_prop</span>
+d_trans = L / R          <span class="ch">L bits, R bps</span>
+d_prop = d / s           <span class="ch">s ≈ 2×10⁸ m/s</span>
+ρ = (a · L) / R          <span class="ch">traffic intensity &lt; 1!</span>
+throughput = min(R₁…Rₙ)
+store-fwd over N links = N × (L/R)</div>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Subnetting (L3, L4)</div>
+      <div class="code" style="margin-top:4px"><span class="out">total addresses = 2^(32 − N)</span>
+usable hosts     = 2^(32 − N) − 2
+network          = IP AND mask
+broadcast        = host bits → all 1s
+subnets created  = 2^(new − old prefix)
+need H hosts     → smallest 2^h ≥ H+2
+                 → prefix = 32 − h
+last-octet jumps: /25→128 /26→192 /27→224
+                  /28→240 /29→248 /30→252</div>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Routing (L7, L8)</div>
+      <div class="code" style="margin-top:4px"><span class="out">LPM: most bits matched wins</span>
+OSPF cost = 100 Mbps / link BW
+  100M→1 · 10M→10 · 1M→100
+DV update: min(mine, to-nbr + nbr's)
+RIP: hops ≤ 15, 16 = ∞
+BGP: LOCAL_PREF → AS_PATH len → MED</div>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Transport &amp; TTL (L2, L10)</div>
+      <div class="code" style="margin-top:4px"><span class="out">ports: 0–1023 well-known</span>
+  22 SSH · 53 DNS · 80 HTTP
+  443 HTTPS · 25 SMTP · 3306 MySQL
+TCP: seq = byte count
+  ack = next byte expected
+  win = receiver buffer
+TTL: 64 Linux/Mac · 128 Windows
+TIME_WAIT = 2×MSL ≈ 60 s
+UDP header 8 B · TCP ≥ 20 B
+hops ≈ sending TTL − received TTL</div>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Protocol Master Tables</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Model</th><th colspan="7">Layers</th></tr>
+    <tr><td><b>OSI (7)</b></td><td>Application</td><td>Presentation</td><td>Session</td><td>Transport</td><td>Network</td><td>Data Link</td><td>Physical</td></tr>
+    <tr><td><b>TCP/IP (4)</b></td><td colspan="3">Application</td><td>Transport</td><td>Internet</td><td colspan="2">Network Access</td></tr>
+    <tr><td><b>Data unit</b></td><td colspan="3">message/data</td><td><b>Segment</b></td><td><b>Packet</b></td><td><b>Frame</b></td><td>bits</td></tr>
+    <tr><td><b>Addressing</b></td><td colspan="3">—</td><td>ports</td><td>IP</td><td>MAC</td><td>—</td></tr>
+  </table>
+  <table class="t small">
+    <tr><th>Protocol</th><th>Layer</th><th>Job</th><th>Memorable fact</th></tr>
+    <tr><td><b>ARP</b></td><td>L2</td><td>IP → MAC locally</td><td>broadcast question, unicast answer</td></tr>
+    <tr><td><b>DHCP</b></td><td>App (UDP 67/68)</td><td>IP + mask + GW + DNS</td><td>DORA — request stays broadcast</td></tr>
+    <tr><td><b>DNS</b></td><td>App (UDP 53)</td><td>names → IPs</td><td>13 root servers A–M; cache by TTL</td></tr>
+    <tr><td><b>HTTP(S)</b></td><td>L7</td><td>web transfer</td><td>stateless; cookies add memory; TLS = L6</td></tr>
+    <tr><td><b>TCP</b></td><td>L4</td><td>reliable ordered bytes</td><td>3-way open, 4-way close, fast retransmit on 3 dup-ACKs</td></tr>
+    <tr><td><b>UDP</b></td><td>L4</td><td>fast datagrams</td><td>8-byte header; DNS/video/games/QUIC</td></tr>
+    <tr><td><b>ICMP</b></td><td>L3</td><td>control &amp; errors</td><td>ping, Time Exceeded, Fragmentation Needed</td></tr>
+    <tr><td><b>IP</b></td><td>L3</td><td>end-to-end delivery</td><td>best-effort; TTL loop-guard; fragmentation</td></tr>
+    <tr><td><b>Ethernet</b></td><td>L2</td><td>local frames</td><td>64–1518 B; FCS silent-discard</td></tr>
+    <tr><td><b>RIP</b></td><td>IGP</td><td>DV routing</td><td>max 15 hops; 30 s updates; split horizon</td></tr>
+    <tr><td><b>OSPF</b></td><td>IGP</td><td>LS routing</td><td>flood LSAs → LSDB → Dijkstra; areas off Area 0</td></tr>
+    <tr><td><b>BGP</b></td><td>EGP</td><td>between ASes</td><td>path-vector; AS_PATH loop check; policy rules</td></tr>
+    <tr><td><b>TLS</b></td><td>L6</td><td>encryption</td><td>TLS 1.3 = 1-RTT; DH forward secrecy; SNI</td></tr>
+    <tr><td><b>STP</b></td><td>L2</td><td>switch loop-stopper</td><td>builds spanning tree; blocks redundant links</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>The Command Arsenal</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div>
+      <div class="code-head"><span>diagnose</span><span>terminal</span></div>
+      <div class="code"><span class="fn">ip addr</span> · <span class="fn">ip link</span>          <span class="ch">interfaces + MACs</span>
+<span class="fn">ping</span> -c 4 host              <span class="ch">L3 reach + RTT</span>
+<span class="fn">traceroute</span> host            <span class="ch">path + latency map</span>
+<span class="fn">dig</span> +short host            <span class="ch">quick DNS</span>
+<span class="fn">dig</span> +trace host            <span class="ch">full walk</span>
+<span class="fn">dig</span> -x IP                  <span class="ch">reverse</span>
+<span class="fn">ss</span> -tulpn                  <span class="ch">listeners + procs</span>
+<span class="fn">ip route show</span>              <span class="ch">routing table</span>
+<span class="fn">ip neigh show</span>              <span class="ch">ARP cache</span></div>
+    </div>
+    <div>
+      <div class="code-head"><span>fix &amp; capture</span><span>terminal</span></div>
+      <div class="code"><span class="fn">ip route add</span> NET via NH     <span class="ch">static route</span>
+<span class="fn">ip neigh flush all</span>         <span class="ch">clear ARP</span>
+<span class="kw">sudo tcpdump</span> -n port 53     <span class="ch">watch DNS</span>
+<span class="kw">sudo tcpdump</span> -w f.pcap      <span class="ch">record</span>
+<span class="kw">sudo tcpdump</span> -A port 80     <span class="ch">read HTTP</span>
+<span class="fn">curl</span> -v http://host         <span class="ch">HTTP probe</span>
+<span class="fn">mtr</span> host                    <span class="ch">live path stats</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Subnetting Drill (do all 10, then check)</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="c-title">The problems</div>
+      <ol style="font-size:11.4px">
+        <li>10.20.30.40/16 → network? broadcast?</li>
+        <li>192.168.1.77/26 → network? usable range?</li>
+        <li>172.16.90.77/20 → mask? network? usable count?</li>
+        <li>Need 50 hosts → prefix? usable?</li>
+        <li>Need 500 subnets from /16 → new prefix? hosts each?</li>
+        <li>How many /28s in a /24?</li>
+        <li>172.25.10.5 — public or private?</li>
+        <li>172.32.10.5 — public or private?</li>
+        <li>192.168.10.130/25 → network? broadcast?</li>
+        <li>10.45.60.100/20 → network? broadcast?</li>
+      </ol>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Answers</div>
+      <ol style="font-size:11.2px">
+        <li>10.20.0.0 · 10.20.255.255</li>
+        <li>192.168.1.64 · .65–.126 (bc .127)</li>
+        <li>255.255.240.0 · 172.16.80.0 · 4094</li>
+        <li>/26 · 62</li>
+        <li>/25 · 126 each (2⁹=512 subnets)</li>
+        <li>16</li>
+        <li>Private (172.16–31)</li>
+        <li>Public — outside /12!</li>
+        <li>192.168.10.128 · .255</li>
+        <li>10.45.48.0 · 10.45.63.255</li>
+      </ol>
+    </div>
+  </div>
+  <div class="card acc" style="margin-top:12px;">
+    <div class="c-title">The 30-second method — worked on drill #3 (172.16.90.77/20)</div>
+    <ol style="font-size:11.6px; line-height:1.65; margin:8px 0 0 18px">
+      <li><b>Block size from the octet that changes:</b> /20 → third octet keeps 4 prefix bits → block = 2⁸⁻⁴ = 16 → boundaries 0, 16, 32, 48, 64, <b>80</b>, 96…</li>
+      <li><b>Network:</b> largest boundary ≤ 90 → third octet 80 → <b>172.16.80.0</b>.</li>
+      <li><b>Broadcast:</b> next boundary − 1 → 96 − 1 → <b>172.16.95.255</b>.</li>
+      <li><b>Usable:</b> .80.1 – .95.254 → host bits = 12 → 2¹² − 2 = <b>4094</b>.</li>
+    </ol>
+    <div class="grid2" style="margin-top:10px;">
+      <div class="callout co-warn"><span class="tag">Traps that cost marks</span><div class="body">"Usable" excludes network + broadcast (<b>−2</b>, always). 172.<b>32</b> is public (outside 16–31). /31 and /32 have no usable hosts. Count <b>subnets</b> with 2^borrowed, <b>hosts</b> with 2^remaining − 2 — don't mix them.</div></div>
+      <div class="callout co-ok"><span class="tag">Sanity checks</span><div class="body">Network + block ≤ next network. Broadcast = network + block − 1. First usable = network + 1. If your broadcast crosses the next boundary, your block size is wrong — recount the borrowed bits.</div></div>
+    </div>
+  </div>
+</div>
+
+<div class="pbreak"></div>
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>Mock Exam — 90 minutes, 70 marks</h2><div class="rule"></div></div>
+  <h3>Section A — MCQ (1 × 10 = 10 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">1.</span><span class="q-tag">MCQ</span>Throughput on a path with links 100/10/50 Mbps equals: (a) 100 (b) 50 (c) 10 (d) 53.3</div>
+    <div class="q"><span class="q-no">2.</span><span class="q-tag">MCQ</span>Which is NOT a transport-layer duty? (a) ports (b) reliability (c) MAC lookup (d) flow control</div>
+    <div class="q"><span class="q-no">3.</span><span class="q-tag">MCQ</span>EtherType 0x0806 identifies: (a) IPv4 (b) ARP (c) IPv6 (d) VLAN</div>
+    <div class="q"><span class="q-no">4.</span><span class="q-tag">MCQ</span>Usable hosts in /23: (a) 512 (b) 510 (c) 1022 (d) 254</div>
+    <div class="q"><span class="q-no">5.</span><span class="q-tag">MCQ</span>Dijkstra cannot handle: (a) cycles (b) negative weights (c) sparse graphs (d) weighted edges</div>
+    <div class="q"><span class="q-no">6.</span><span class="q-tag">MCQ</span>OSPF's algorithm on the LSDB: (a) Bellman-Ford (b) BFS (c) Dijkstra (d) Kruskal</div>
+    <div class="q"><span class="q-no">7.</span><span class="q-tag">MCQ</span>The URL part never sent to servers: (a) path (b) query (c) fragment (d) host</div>
+    <div class="q"><span class="q-no">8.</span><span class="q-tag">MCQ</span>Three duplicate ACKs trigger: (a) slow start (b) window 0 (c) fast retransmit (d) RST</div>
+    <div class="q"><span class="q-no">9.</span><span class="q-tag">MCQ</span>DHCP's four messages: (a) SYN/ACK/FIN/RST (b) DORA (c) Q/R/A (d) GET/PUT/POST/DEL</div>
+    <div class="q"><span class="q-no">10.</span><span class="q-tag">MCQ</span>IP pings but names don't resolve → broken: (a) router (b) DNS (c) NAT (d) switch</div>
+  </div>
+  <h3>Section B — Short Answer (3 × 6 = 18 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">11.</span><span class="q-tag">3m</span>Encapsulate "the packet leaves my laptop" — name the data unit and addressing at L4, L3, L2.</div>
+    <div class="q"><span class="q-no">12.</span><span class="q-tag">3m</span>Differentiate circuit and packet switching (four points) and say why the Internet chose packets.</div>
+    <div class="q"><span class="q-no">13.</span><span class="q-tag">3m</span>Why do MAC addresses change at every hop while IP addresses don't (until NAT)?</div>
+    <div class="q"><span class="q-no">14.</span><span class="q-tag">3m</span>State split horizon and poison reverse; why do they cure count-to-infinity?</div>
+    <div class="q"><span class="q-no">15.</span><span class="q-tag">3m</span>Idempotent vs safe methods — classify GET, POST, PUT, DELETE.</div>
+    <div class="q"><span class="q-no">16.</span><span class="q-tag">3m</span>Explain the NAT state table's role for three devices sharing one public IP.</div>
+  </div>
+  <h3>Section C — Long Answer (7 × 6 = 42 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">17.</span><span class="q-tag">7m</span>Compute: 1500-B packet over 3 store-and-forward links — 10 Mbps/600 km, 1 Mbps/30 km, 10 Mbps/1200 km, s = 2×10⁸ m/s. Per-link d_trans, d_prop, total one-way delay.</div>
+    <div class="q"><span class="q-no">18.</span><span class="q-tag">7m</span>VLSM-allocate 192.168.20.0/24: Sales 100, Tech 50, Admin 20, Guest 10, WAN 2. Ranges + broadcasts, largest first.</div>
+    <div class="q"><span class="q-no">19.</span><span class="q-tag">7m</span>Trace Dijkstra from Delhi on the 5-city graph (Lecture 5): expansion order, final costs, path to Chennai.</div>
+    <div class="q"><span class="q-no">20.</span><span class="q-tag">7m</span>Count-to-infinity: diagram, the numbers after B–C fails, all four cures.</div>
+    <div class="q"><span class="q-no">21.</span><span class="q-tag">7m</span>DNS resolution for www.google.com — every cache, server and referral, recursive vs iterative.</div>
+    <div class="q"><span class="q-no">22.</span><span class="q-tag">7m</span>Three-way handshake + four-way close with seq/ack numbers; why TIME_WAIT?</div>
+    <div class="q"><span class="q-no">23.</span><span class="q-tag">7m</span>The complete HTTPS journey (9 phases) with one protocol + one OSI layer per phase.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Mock Exam — Answer Key</div>
+    <div class="a-item"><b>MCQ:</b> 1-c · 2-c · 3-b · 4-b · 5-b · 6-c · 7-c · 8-c · 9-b · 10-b</div>
+    <div class="a-item"><b>11.</b> Segment (ports) → Packet (IPs) → Frame (MACs); headers added going down.</div>
+    <div class="a-item"><b>12.</b> Reserved path vs store-and-forward · FDM/TDM vs statistical sharing · guaranteed vs queueing · wasteful vs efficient; Internet = bursty traffic → packets.</div>
+    <div class="a-item"><b>13.</b> L2 frames are local-only — rebuilt per hop; IP is the end-to-end identity routers forward on; NAT rewrites at the edge only.</div>
+    <div class="a-item"><b>14.</b> Never re-advertise a route out the interface it came from (silence); poison reverse advertises it as ∞ explicitly — the false "path through you" never exists, so the count never starts.</div>
+    <div class="a-item"><b>15.</b> GET safe+idempotent · POST neither · PUT idempotent not safe · DELETE idempotent not safe.</div>
+    <div class="a-item"><b>16.</b> Each flow owns a translated port: (priv IP:port ↔ pub IP:port); replies look up by port; no entry → drop (accidental firewall).</div>
+    <div class="a-item"><b>17.</b> d_trans = 1.2 / 12 / 1.2 ms; d_prop = 3 / 0.15 / 6 ms; <b>total = 23.55 ms</b> (L=12000 bits).</div>
+    <div class="a-item"><b>18.</b> Sales .0/25 (bc .127) · Tech .128/26 (bc .191) · Admin .192/27 (bc .223) · Guest .224/28 (bc .239) · WAN .240/30 (bc .243).</div>
+    <div class="a-item"><b>19.</b> Order Delhi(0) → Hyderabad(2) → Bangalore(4) → Mumbai(5) → Chennai(8); Delhi→Chennai = Delhi→Hyd→Bang→Chen (8).</div>
+    <div class="a-item"><b>20.</b> B sets C=∞; A's stale "C=2" arrives → B:3 → A:4 → … to 16; cures: split horizon, poison reverse, triggered updates, holddown.</div>
+    <div class="a-item"><b>21.</b> browser → OS → hosts → resolver cache → root (referral .com) → TLD (referral ns1) → authoritative (A record, TTL) → cached &amp; returned. Recursive for the client; iterative by the resolver.</div>
+    <div class="a-item"><b>22.</b> SYN(x) → SYN-ACK(y, x+1) → ACK(y+1); close FIN(m)→ACK(m+1)→FIN(n)→ACK(n+1); TIME_WAIT 2×MSL for a lost final ACK + duplicate expiry.</div>
+    <div class="a-item"><b>23.</b> cache(L7 app) → DNS(L7/UDP) → ARP(L2) → TCP(L4) → TLS(L6) → HTTP(L7) → LB/app → NAT+routing(L3) → close(L4). Any faithful ordering with layers = full marks.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Glossary — Say It Like You Mean It</h2><div class="rule"></div></div>
+  <table class="t small">
+    <tr><th>Term</th><th>One-line definition</th><th>Term</th><th>One-line definition</th></tr>
+    <tr><td>Protocol</td><td>agreed format + sequence + actions</td><td>Socket</td><td>(IP, port) endpoint of a connection</td></tr>
+    <tr><td>Encapsulation</td><td>wrapping data in per-layer headers going down</td><td>Three-way handshake</td><td>SYN → SYN-ACK → ACK</td></tr>
+    <tr><td>MTU</td><td>max frame payload (Ethernet 1500 B)</td><td>Sliding window</td><td>receiver-advertised unacked byte budget</td></tr>
+    <tr><td>Fragmentation</td><td>splitting oversized IP packets; reassembled at destination</td><td>Fast retransmit</td><td>resend on 3 duplicate ACKs</td></tr>
+    <tr><td>CIDR</td><td>/N prefix notation replacing classes</td><td>TTL</td><td>hop budget; 0 → drop + ICMP</td></tr>
+    <tr><td>VLSM</td><td>different prefix lengths per subnet</td><td>LPM</td><td>longest matching prefix wins</td></tr>
+    <tr><td>NAT/PAT</td><td>private IP:port ↔ public IP:port table</td><td>Convergence</td><td>all routers agree on tables</td></tr>
+    <tr><td>DORA</td><td>DHCP Discover Offer Request Ack</td><td>Count-to-infinity</td><td>DV looping after link failure</td></tr>
+    <tr><td>Gratuitous ARP</td><td>self-ARP: conflict check / cache refresh</td><td>LSA / LSDB</td><td>link-state advert / its database</td></tr>
+    <tr><td>APIPA</td><td>169.254.x.x = DHCP failed</td><td>AS / ASN</td><td>one admin's network / its number</td></tr>
+    <tr><td>Loopback</td><td>127.0.0.1 — never leaves the host</td><td>BGP hijack</td><td>more-specific prefix theft (RPKI fights it)</td></tr>
+    <tr><td>Throughput</td><td>achieved end-to-end rate = min link</td><td>SNI</td><td>hostname in ClientHello → right certificate</td></tr>
+    <tr><td>RTT / mdev</td><td>round-trip time / its jitter</td><td>ETag / 304</td><td>fingerprint / not-modified revalidation</td></tr>
+    <tr><td>Store-and-forward</td><td>router receives fully, then relays (+L/R)</td><td>TTFB</td><td>request → first response byte</td></tr>
+    <tr><td>PMTUD</td><td>DF-bit + ICMP discovery of path MTU</td><td>TLS 1.3</td><td>1-RTT encrypted channel, DH forward secrecy</td></tr>
+  </table>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">The Night-Before Card — if you read nothing else</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Layers</b>: PDNTSPA · App/Trans/Internet/NetAccess · Segment-Packet-Frame.</div>
+    <div class="cheat-item"><b>Subnet</b>: IP AND mask = network · 2^h−2 hosts · /24→.0 /25→.128 /26→.192 /27→.224 /28→.240 /29→.248 /30→.252.</div>
+    <div class="cheat-item"><b>Delay</b>: proc+queue+trans(L/R)+prop(d/s) · throughput=min · ρ&lt;1.</div>
+    <div class="cheat-item"><b>Graphs</b>: BFS queue hops RIP · DFS stack cycles · Dijkstra heap cost OSPF · Bellman-Ford negatives · MST ↔ STP.</div>
+    <div class="cheat-item"><b>Routing</b>: LPM longest wins · TTL−1 · RIP 15 hops · OSPF floods+Dijkstra · BGP AS_PATH policy.</div>
+    <div class="cheat-item"><b>DNS/HTTP</b>: caches→root→TLD→auth · GET safe · 401 vs 403 · cookies = state over stateless.</div>
+    <div class="cheat-item"><b>TCP/UDP</b>: SYN SYN-ACK ACK · FIN×2 · 3 dup-ACK retransmit · window=0 pause · UDP 8 B for DNS/video/games.</div>
+    <div class="cheat-item"><b>Local net</b>: ARP bcast Q/unicast A · DORA · NAT port table · home router = 5 devices.</div>
+    <div class="cheat-item"><b>Troubleshoot</b>: ladder L1→L7 · IP pings but name doesn't = DNS · 127.0.0.1 bind = invisible · CLOSE_WAIT = bug.</div>
+    <div class="cheat-item"><b>Journey</b>: cache→DNS→ARP→TCP→TLS→HTTP→server→return→close · 2nd visit ≈ cache+keep-alive.</div>
+  </div>
+</div>
+
+</body>
+</html>

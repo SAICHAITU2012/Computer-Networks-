@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 3 — IP Addresses and Subnetting I</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#059669; --acc-d:#2f6b58; --acc-l:#eff8f2; --acc-m:#cde7d9; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">03</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>IP Addresses and<br>Subnetting — Part I</h1>
+    <div class="tagline">Why IP addresses exist, binary ↔ decimal fluency, network vs host ID, subnet masks, the AND trick, CIDR notation, public vs private ranges, and the loopback address.</div>
+    <div class="chips"><span class="chip">Why IP</span><span class="chip">IPv4 Format</span><span class="chip">Binary Refresher</span><span class="chip">Network ID</span><span class="chip">Host ID</span><span class="chip">Subnet Mask</span><span class="chip">AND Operation</span><span class="chip">CIDR Notation</span><span class="chip">Public vs Private</span><span class="chip">Loopback</span><span class="chip">APIPA</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>The single most exam-generating topic in the course: reading an IPv4 address like a router does. You'll convert binary fluently, split any address into network and host parts with a subnet mask, compute network/broadcast addresses with the AND operation, read CIDR /N notation, and memorise the private ranges — with three fully worked examples.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Numericals · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Explain why we need IP addresses on top of MAC addresses</li>
+    <li>Read and write IPv4 addresses in <b>binary and dotted-decimal</b></li>
+    <li>Apply <b>subnet masks</b> and <b>CIDR</b> /N notation</li>
+    <li>Identify <b>network address, broadcast address, first/last host</b> of any subnet</li>
+    <li>Classify addresses as <b>public, private, or loopback</b> — and spot APIPA</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">IP Addressing I</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">IPv4 = 32 bits</div><div class="mm-children"><div class="mm-child">4 octets · 0–255 each</div><div class="mm-child">2³² ≈ 4.3 billion</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Binary</div><div class="mm-children"><div class="mm-child">128 64 32 16 8 4 2 1</div><div class="mm-child">convert both directions</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Two Parts</div><div class="mm-children"><div class="mm-child">Network ID (routers care)</div><div class="mm-child">Host ID (the device)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Subnet Mask</div><div class="mm-children"><div class="mm-child">1s = network, 0s = host</div><div class="mm-child">contiguous from the left</div></div></div>
+    <div class="mm-branch"><div class="mm-node">The AND Trick</div><div class="mm-children"><div class="mm-child">IP AND Mask = Network</div><div class="mm-child">hosts=1s → Broadcast</div></div></div>
+    <div class="mm-branch"><div class="mm-node">CIDR /N</div><div class="mm-children"><div class="mm-child">/24 = 255.255.255.0</div><div class="mm-child">2^(32−N) addresses</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Special IPs</div><div class="mm-children"><div class="mm-child">Private: 10 · 172.16–31 · 192.168</div><div class="mm-child">Loopback 127.0.0.1</div><div class="mm-child">APIPA 169.254.x.x</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Why IP Addresses?</h2><div class="rule"></div></div>
+  <p>MAC addresses (Lecture 2) only work <b>locally</b> — within one network segment. To route data across the Internet, across thousands of networks, we need a global addressing system. IP addresses provide:</p>
+  <div class="grid3">
+    <div class="card acc"><div class="c-title">Global uniqueness</div>Every public IP is unique world-wide — assigned by registries (IANA → regional registries → ISPs).</div>
+    <div class="card acc"><div class="c-title">Hierarchy</div>The network portion enables routers to aggregate millions of destinations into few routing entries.</div>
+    <div class="card acc"><div class="c-title">Logical &amp; flexible</div>Reassignable in software — unlike the hardware-burned MAC.</div>
+  </div>
+  <div class="callout co-ana"><div class="tag">Analogy</div><div class="body"><b>MAC = your name</b> (travels with you, meaningless for postal delivery). <b>IP = your postal address</b> (hierarchical: city → street → house — exactly how routers narrow the search). A person can move houses (new IP) keeping the same name (MAC).</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>IPv4 Format</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="pdu" style="max-width:560px; margin-left:auto; margin-right:auto; font-size:11px">
+      <span style="flex:1; background:#059669; color:#fff">192<span class="lbl">8 bits</span></span>
+      <span style="flex:1; background:#10b981; color:#fff">168<span class="lbl">8 bits</span></span>
+      <span style="flex:1; background:#34d399; color:#2f6b58">1<span class="lbl">8 bits</span></span>
+      <span style="flex:1; background:#6ee7b7; color:#2f6b58">5<span class="lbl">8 bits</span></span>
+    </div>
+    <div class="legend"><span class="l-item"><span class="sw" style="background:#059669"></span>Four octets (0–255 each) = 32 bits total</span><span class="l-item"><span class="sw" style="background:#6ee7b7"></span>Total address space 2³² = 4,294,967,296 ≈ 4.3 billion</span></div>
+    <div class="fig-cap"><b>Figure 1.</b> Dotted-decimal notation — four 8-bit octets separated by dots.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Binary ↔ Decimal — the Essential Skill</h2><div class="rule"></div></div>
+  <div class="fig">
+    <div class="pdu" style="max-width:560px; margin-left:auto; margin-right:auto">
+      <span style="flex:1; background:#2f6b58; color:#fff">128<span class="lbl">bit 7</span></span><span style="flex:1; background:#2f6b58; color:#fff">64<span class="lbl">bit 6</span></span><span style="flex:1; background:#059669; color:#fff">32<span class="lbl">bit 5</span></span><span style="flex:1; background:#059669; color:#fff">16<span class="lbl">bit 4</span></span><span style="flex:1; background:#10b981; color:#fff">8<span class="lbl">bit 3</span></span><span style="flex:1; background:#10b981; color:#fff">4<span class="lbl">bit 2</span></span><span style="flex:1; background:#34d399; color:#2f6b58">2<span class="lbl">bit 1</span></span><span style="flex:1; background:#34d399; color:#2f6b58">1<span class="lbl">bit 0</span></span>
+    </div>
+    <div class="fig-cap"><b>Figure 2.</b> Memorise these 8 position values — every conversion is just adding subsets of them.</div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="c-title">Decimal → Binary (subtract from the left)</div>
+      <b>192:</b> 128 ≤ 192 → bit=1, rem 64 → 64 ≤ 64 → bit=1, rem 0 → rest 0<br>
+      <span class="mono">192 = <b>11000000</b></span><br><br>
+      <b>168:</b> 128→1 (rem 40) · 64→0 · 32→1 (rem 8) · 16→0 · 8→1 (rem 0)<br>
+      <span class="mono">168 = <b>10101000</b></span>
+    </div>
+    <div class="card">
+      <div class="c-title">Binary → Decimal (add the 1-positions)</div>
+      <span class="mono"><b>11000000</b></span> = 128 + 64 = <b>192</b><br>
+      <span class="mono"><b>10101000</b></span> = 128 + 32 + 8 = <b>168</b><br><br>
+      <b>Full IP:</b> 192.168.1.5 = <span class="mono">11000000.10101000.00000001.00000101</span>
+    </div>
+  </div>
+  <table class="t small">
+    <tr><th>Decimal</th><th>Binary</th><th>Decimal</th><th>Binary</th><th>Decimal</th><th>Binary</th></tr>
+    <tr><td>0</td><td class="mono">00000000</td><td>10</td><td class="mono">00001010</td><td>192</td><td class="mono">11000000</td></tr>
+    <tr><td>1</td><td class="mono">00000001</td><td>64</td><td class="mono">01000000</td><td>255</td><td class="mono">11111111</td></tr>
+    <tr><td>2</td><td class="mono">00000010</td><td>128</td><td class="mono">10000000</td><td>172</td><td class="mono">10101100</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Network ID and Host ID</h2><div class="rule"></div></div>
+  <p>Every IP address has two parts, split by the subnet mask:</p>
+  <div class="fig">
+    <div class="pdu" style="max-width:560px; margin-left:auto; margin-right:auto">
+      <span style="flex:0 0 72%; background:#059669; color:#fff">NETWORK PORTION<span class="lbl">identifies which network — routers route on this</span></span>
+      <span style="flex:0 0 28%; background:#6ee7b7; color:#2f6b58">HOST<span class="lbl">the device</span></span>
+    </div>
+    <div class="fig-cap"><b>Figure 3.</b> 192.168.1.5 → network 192.168.1 · host .5 (with a /24 mask).</div>
+  </div>
+  <h3>Historical classes (know the ranges, CIDR replaced them)</h3>
+  <table class="t small">
+    <tr><th>Class</th><th>First octet</th><th>Network bits</th><th>Host bits</th><th>Default mask</th><th>Typical use</th></tr>
+    <tr><td><b>A</b></td><td>1–126</td><td>8</td><td>24</td><td class="mono">255.0.0.0</td><td>giant networks / ISPs</td></tr>
+    <tr><td><b>B</b></td><td>128–191</td><td>16</td><td>16</td><td class="mono">255.255.0.0</td><td>large organisations</td></tr>
+    <tr><td><b>C</b></td><td>192–223</td><td>24</td><td>8</td><td class="mono">255.255.255.0</td><td>small networks</td></tr>
+  </table>
+  <div class="callout co-info"><div class="tag">Note</div><div class="body">127.x.x.x is reserved (loopback) so class A "ends" at 126 in practice. Classful addressing is legacy, but the ranges still appear in exams and tools.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Subnet Mask &amp; the AND Operation</h2><div class="rule"></div></div>
+  <p>A <b>subnet mask</b> is a 32-bit number: <b>1s mark network bits, 0s mark host bits — and the 1s are always contiguous from the left</b>.</p>
+  <div class="code"><span class="out">Mask 255.255.255.0 in binary:</span>
+<span class="kw">11111111.11111111.11111111.00000000</span>
+<span class="ch">└──────── 24 network bits ────────┘└ 8 host bits ┘</span></div>
+  <h3>The one calculation everything else builds on</h3>
+  <div class="formula"><div class="f">Network Address = IP address AND Subnet Mask</div><div class="fnote">AND: 1 AND 1 = 1 · anything AND 0 = 0 — the mask "keeps" the network part and zeroes the host part</div></div>
+  <div class="code"><span class="out">IP:    192.168.1.5   →  11000000.10101000.00000001.00000101
+Mask:  255.255.255.0 →  11111111.11111111.11111111.00000000
+AND ────────────────────────┴────────┴────────┴────────
+                            11000000.10101000.00000001.00000000  =  192.168.1.0</span>
+
+<span class="fn">Network address = 192.168.1.0</span>  <span class="ch">← same for every device in this subnet!</span></div>
+  <h3>The four special addresses of every subnet</h3>
+  <table class="t">
+    <tr><th>Address</th><th>Host bits</th><th>Purpose</th></tr>
+    <tr><td><b>Network address</b></td><td>all 0s</td><td>Identifies the subnet itself — <span class="bad">not assignable</span></td></tr>
+    <tr><td><b>First host</b></td><td>0…01</td><td>First usable device (often the gateway)</td></tr>
+    <tr><td><b>Last host</b></td><td>1…10</td><td>Last usable device</td></tr>
+    <tr><td><b>Broadcast address</b></td><td>all 1s</td><td>Delivers to ALL devices in the subnet — <span class="bad">not assignable</span></td></tr>
+  </table>
+  <div class="fig tinted">
+    <div class="code" style="margin:0"><span class="out">Example — 192.168.1.0/24</span>
+Network:  <span class="kw">192.168.1.0</span>      First host: <span class="kw">192.168.1.1</span>
+Last host:<span class="kw">192.168.1.254</span>     Broadcast:  <span class="kw">192.168.1.255</span></div>
+    <div class="formula" style="margin:8px 14px 12px"><div class="f">Total addresses = 2^(32 − N) &nbsp;·&nbsp; Usable hosts = 2^(32 − N) − 2</div><div class="fnote">N = prefix length · the −2 removes network + broadcast addresses</div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>CIDR Notation</h2><div class="rule"></div></div>
+  <p><b>CIDR (Classless Inter-Domain Routing)</b> writes the prefix as <span class="k">/N</span> — the number of leading 1-bits — instead of a full mask.</p>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">Reading examples</div>
+      <span class="mono">192.168.1.5<b>/24</b></span> → mask 255.255.255.0<br>
+      <span class="mono">10.0.0.0<b>/8</b></span> → mask 255.0.0.0<br>
+      <span class="mono">172.16.0.0<b>/16</b></span> → mask 255.255.0.0<br>
+      <span class="mono">192.168.1.64<b>/26</b></span> → mask 255.255.255.192
+    </div>
+    <div class="card acc"><div class="c-title">Reading /26 in detail</div>
+      <span class="mono">/26 = 26 ones = 111…1000000</span><br>
+      Block: 192.168.1.64 → hosts .65–.126<br>
+      Broadcast .127 · usable = 2⁶−2 = <b>62</b>
+    </div>
+  </div>
+  <table class="t small">
+    <tr><th>CIDR</th><th>Subnet mask</th><th>Usable hosts</th><th>Common use</th><th>CIDR</th><th>Subnet mask</th><th>Usable hosts</th><th>Common use</th></tr>
+    <tr><td><b>/8</b></td><td class="mono">255.0.0.0</td><td>16,777,214</td><td>Large ISPs</td><td><b>/26</b></td><td class="mono">…255.192</td><td>62</td><td>Small subnets</td></tr>
+    <tr><td><b>/16</b></td><td class="mono">255.255.0.0</td><td>65,534</td><td>Enterprises</td><td><b>/27</b></td><td class="mono">…255.224</td><td>30</td><td>Small offices</td></tr>
+    <tr><td><b>/24</b></td><td class="mono">255.255.255.0</td><td>254</td><td>Home / office</td><td><b>/28</b></td><td class="mono">…255.240</td><td>14</td><td>Very small</td></tr>
+    <tr><td><b>/25</b></td><td class="mono">…255.128</td><td>126</td><td>Medium subnets</td><td><b>/30</b></td><td class="mono">…255.252</td><td>2</td><td>Point-to-point</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body">Memorise the "jump" pattern in the last octet: /24→.0, /25→.128, /26→.192, /27→.224, /28→.240, /29→.248, /30→.252. Each extra /1 bit halves the block: 256 → 128 → 64 → 32 → 16.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Public vs Private Addresses</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Private range</th><th>CIDR</th><th>Size</th><th>Typical use</th></tr>
+    <tr><td class="mono">10.0.0.0 – 10.255.255.255</td><td>10.0.0.0/8</td><td>16.7 M</td><td>Large corps, cloud VPCs</td></tr>
+    <tr><td class="mono">172.16.0.0 – 172.31.255.255</td><td>172.16.0.0/12</td><td>1.04 M</td><td>Medium networks</td></tr>
+    <tr><td class="mono">192.168.0.0 – 192.168.255.255</td><td>192.168.0.0/16</td><td>65,536</td><td>Home routers, offices</td></tr>
+  </table>
+  <ul>
+    <li><b>Private = not routable on the Internet</b> — freely reusable inside any organisation; millions of homes all use 192.168.x.x.</li>
+    <li><b>Public = everything else</b> — globally routable, assigned by ISPs/registries. Only your router's WAN side holds one (NAT, Lecture 11).</li>
+  </ul>
+  <div class="callout co-warn"><div class="tag">Trap</div><div class="body"><b>172.20.5.1 is private</b> (172.16–31 range) but <b>172.32.0.1 is public</b>! The /12 range stops at 172.31.255.255. Examiners love this.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">8</div><h2>Special Addresses</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Address / range</th><th>Name</th><th>What it means</th></tr>
+    <tr><td class="mono">127.0.0.1 (127.0.0.0/8)</td><td><b>Loopback / localhost</b></td><td>Packets loop back to the same device — never touch the network. <span class="mono">ping 127.0.0.1</span> tests your TCP/IP stack. <span class="mono">http://localhost:3000</span> for local dev servers.</td></tr>
+    <tr><td class="mono">0.0.0.0</td><td>Unspecified / "any"</td><td>All interfaces (servers bind here) or "no address yet" (DHCP discover)</td></tr>
+    <tr><td class="mono">169.254.0.0/16</td><td><b>APIPA</b></td><td>Self-assigned when <b>DHCP fails</b> — seeing this = "my device couldn't get an IP from the router"</td></tr>
+    <tr><td class="mono">255.255.255.255</td><td>Limited broadcast</td><td>All hosts on the local subnet; routers never forward it</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">9</div><h2>Worked Examples (Exam Pattern)</h2><div class="rule"></div></div>
+  <div class="card">
+    <div class="c-title">Example 1 — analyse 192.168.10.130/25</div>
+    <div class="code" style="margin-top:4px"><span class="out">/25 mask = 11111111.11111111.11111111.10000000 = 255.255.255.128</span>
+Last octet: 130 = <span class="kw">10000010</span> → first bit (network) = 1 → belongs to upper half
+<span class="fn">Network:</span>   192.168.10.128     <span class="fn">Broadcast:</span> 192.168.10.255
+<span class="fn">Hosts:</span>     192.168.10.129 – 192.168.10.254    <span class="fn">Usable:</span> 2⁷−2 = <span class="kw">126</span></div>
+  </div>
+  <div class="card">
+    <div class="c-title">Example 2 — is 172.20.5.1 private?</div>
+    <div class="code" style="margin-top:4px"><span class="out">172.20.x.x falls in 172.16.0.0 – 172.31.255.255 → YES, private (172.16.0.0/12)</span></div>
+  </div>
+  <div class="card">
+    <div class="c-title">Example 3 — network address of 10.45.60.100/20</div>
+    <div class="code" style="margin-top:4px"><span class="out">/20 mask = 255.255.240.0  → third octet has 4 network bits + 4 host bits</span>
+60 = <span class="kw">00111100</span> → keep first 4 bits (0011), zero the rest → 00110000 = <span class="kw">48</span>
+<span class="fn">Network:</span> 10.45.48.0    <span class="fn">Broadcast:</span> 10.45.63.255    <span class="fn">Usable:</span> 2¹²−2 = <span class="kw">4094</span></div>
+  </div>
+  <div class="callout co-ana"><div class="tag">Speed tip</div><div class="body">For /20 in the third octet: block size = 256−240 = 16 → network octets are 0,16,32,<b>48</b>,64… 60 sits in 48–63 → network .48, broadcast .63. This "block-size jump" trick solves any subnet question in seconds.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 3 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>IPv4</b> = 32 bits, 4 octets 0–255; space = 2³² ≈ 4.3 B.</div>
+    <div class="cheat-item"><b>Binary positions</b>: 128 64 32 16 8 4 2 1 — add/subtract to convert.</div>
+    <div class="cheat-item"><b>Subnet mask</b>: 1s = network, 0s = host, contiguous left.</div>
+    <div class="cheat-item"><b>Network = IP AND mask</b>; broadcast = host bits all 1; usable = 2^(host bits) − 2.</div>
+    <div class="cheat-item"><b>CIDR /N</b>: N network bits; /24→.0, /25→.128, /26→.192, /27→.224, /28→.240, /30→.252.</div>
+    <div class="cheat-item"><b>Classes</b>: A 1–126 (/8) · B 128–191 (/16) · C 192–223 (/24).</div>
+    <div class="cheat-item"><b>Private</b>: 10/8 · 172.16–31/12 · 192.168/16 — never Internet-routable.</div>
+    <div class="cheat-item"><b>Loopback 127.0.0.1</b> = self · <b>169.254.x.x</b> = DHCP failed · <b>0.0.0.0</b> = any.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Which of these is a <b>private</b> IP address?<ul class="opts"><li>a) 172.32.10.1</li><li>b) 192.169.1.5</li><li>c) 10.200.3.4</li><li>d) 8.8.8.8</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>How many usable host addresses exist in a /28 subnet?<ul class="opts"><li>a) 16</li><li>b) 14</li><li>c) 30</li><li>d) 254</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>The network address of 192.168.1.77/26 is:<ul class="opts"><li>a) 192.168.1.0</li><li>b) 192.168.1.64</li><li>c) 192.168.1.32</li><li>d) 192.168.1.63</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>A device showing 169.254.10.5 most likely means:<ul class="opts"><li>a) It is a public web server</li><li>b) DHCP failed</li><li>c) It is a loopback test</li><li>d) It is a router</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>255.255.255.240 as CIDR is:<ul class="opts"><li>a) /26</li><li>b) /27</li><li>c) /28</li><li>d) /29</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Convert 172 to binary. Show working.</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>What is the network address of 10.20.30.40/16? Show the AND operation.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Why can't the network address or broadcast address be assigned to a device?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>Distinguish public vs private IPs. Why do private ranges exist at all?</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>What is the loopback address and give two practical uses.</div>
+  </div>
+  <h3>C. Long Answer / Numericals (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Numerical</span>For 172.16.90.77/20 compute: subnet mask, network address, broadcast address, first &amp; last usable host, total usable count. Show the binary of the relevant octets.</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Explain the structure of an IPv4 address with a diagram: octets, network portion, host portion, and how the subnet mask divides them. Why is the AND operation the natural way to find the network?</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Numerical</span>You are given 192.168.1.5/24. Write the complete 32-bit binary of the address AND of its subnet mask, then compute the network and broadcast addresses.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Short</span>Your friend says "172.25.10.5 can't be private because it doesn't start with 10 or 192.168." Correct them precisely.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> c — 10.x.x.x is private; 172.32 is outside 172.16–31; 192.169 is outside 192.168.</div>
+    <div class="a-item"><b>A2.</b> b — 2⁴−2 = 14.</div>
+    <div class="a-item"><b>A3.</b> b — /26 blocks: 0, 64, 128, 192 → 77 sits in 64–127.</div>
+    <div class="a-item"><b>A4.</b> b — APIPA self-assignment when DHCP fails.</div>
+    <div class="a-item"><b>A5.</b> c — 240 = 11110000 → 28 ones.</div>
+    <div class="a-item"><b>A6.</b> 172 = 128+32+8+4 = <b>10101100</b>.</div>
+    <div class="a-item"><b>A7.</b> Mask /16 keeps first two octets → <b>10.20.0.0</b>.</div>
+    <div class="a-item"><b>A8.</b> Network = the subnet's own identity (routers use it); broadcast = "all hosts here". Both are conventions every host must agree on — assigning them breaks addressing.</div>
+    <div class="a-item"><b>A9.</b> Public = globally routable, registry-assigned, unique. Private = reusable internally, not routed on Internet. They exist because 4.3B addresses &lt; devices on Earth — reuse + NAT (L11) stretches IPv4.</div>
+    <div class="a-item"><b>A10.</b> 127.0.0.1 — packets never leave the machine. Uses: test the TCP/IP stack; run local dev servers (localhost:3000).</div>
+    <div class="a-item"><b>A11.</b> /20 → mask 255.255.240.0; third octet 90 = 01011010 → keep 0101 → 01010000 = 80. Network <b>172.16.80.0</b>, broadcast <b>172.16.95.255</b>, hosts .80.1–.95.254, usable <b>4094</b>.</div>
+    <div class="a-item"><b>A12.</b> Use Figures 1 &amp; 3; AND zeroes host bits because "anything AND 0 = 0" — leaving exactly the network identity all subnet devices share.</div>
+    <div class="a-item"><b>A13.</b> 11000000.10101000.00000001.00000101 AND 11111111.11111111.11111111.00000000 → network <b>192.168.1.0</b>, broadcast <b>192.168.1.255</b>.</div>
+    <div class="a-item"><b>A14.</b> The /12 private block is 172.16.0.0–172.31.255.255 — 172.25.x.x lies inside it, so it IS private. Private ≠ only 10/8 &amp; 192.168/16.</div>
+  </div>
+  <div class="card acc" style="margin-top:14px;">
+    <div class="c-title">Wrap-Up — carry these into Lecture 4</div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="callout co-info"><span class="tag">Anatomy</span><div class="body">32 bits = 4 octets; the mask draws the line between <b>network bits</b> (shared identity) and <b>host bits</b> (who you are inside it).</div></div>
+      <div class="callout co-info"><span class="tag">AND to find home</span><div class="body">IP <b>AND</b> mask = network address. "Anything AND 0 = 0" zeroes host bits, leaving exactly the subnet's identity.</div></div>
+      <div class="callout co-warn"><span class="tag">Special addresses</span><div class="body">All-host-bits-0 = network, all-ones = broadcast — never assign them. 127.0.0.1 talks to yourself.</div></div>
+      <div class="callout co-ok"><span class="tag">Private blocks</span><div class="body">10/8, 172.16/12, 192.168/16 are reusable inside networks; public addresses are globally unique. NAT (L11) bridges the two.</div></div>
+    </div>
+    <div class="callout co-exam" style="margin-top:9px;"><span class="tag">Next</span><div class="body"><b>Lecture 4 — IP Addresses &amp; Subnetting II:</b> borrowing host bits to carve subnets, VLSM, and the speed method that solves any paper question in 30 seconds.</div></div>
+  </div>
+</div>
+
+</body>
+</html>

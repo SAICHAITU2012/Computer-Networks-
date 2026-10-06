@@ -1,0 +1,311 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 4 — IP Addresses and Subnetting II</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#0d9488; --acc-d:#356f6a; --acc-l:#eff8f6; --acc-m:#cbe6e2; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">04</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>IP Addresses and<br>Subnetting — Part II</h1>
+    <div class="tagline">Solving real subnetting problems, VLSM allocation, IPv6, the default gateway decision, broadcast types, and an introduction to NAT.</div>
+    <div class="chips"><span class="chip">Subnetting Problems</span><span class="chip">VLSM</span><span class="chip">IPv6 &amp; Compression</span><span class="chip">Default Gateway</span><span class="chip">Broadcast Address</span><span class="chip">Network Address</span><span class="chip">NAT Intro</span><span class="chip">Port Forwarding</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>From theory to doing: a step-by-step subnetting recipe with a lookup table, a full VLSM allocation for four departments, IPv6 with its compression rules, exactly how your device decides "direct or gateway?", the two broadcast types, and how NAT lets a whole house share one public IP — with worked numericals in exam format.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Numericals · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Solve subnetting problems <b>from host requirements</b></li>
+    <li>Apply <b>VLSM</b> to allocate IP space without overlap</li>
+    <li>Understand <b>IPv6</b> format and compress addresses correctly</li>
+    <li>Explain the <b>default gateway</b> decision (direct vs via gateway)</li>
+    <li>Describe <b>NAT</b>: the problem it solves and how the translation table works</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Subnetting II</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Recipe</div><div class="mm-children"><div class="mm-child">hosts+2 → smallest 2^N</div><div class="mm-child">prefix = 32 − N</div></div></div>
+    <div class="mm-branch"><div class="mm-node">VLSM</div><div class="mm-children"><div class="mm-child">different prefixes per subnet</div><div class="mm-child">allocate LARGEST first</div></div></div>
+    <div class="mm-branch"><div class="mm-node">IPv6</div><div class="mm-children"><div class="mm-child">128-bit colon-hex</div><div class="mm-child">:: once only</div><div class="mm-child">no broadcast, no NAT</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Gateway</div><div class="mm-children"><div class="mm-child">dest AND mask = my net?</div><div class="mm-child">yes → direct · no → gateway</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Broadcasts</div><div class="mm-children"><div class="mm-child">limited 255.255.255.255</div><div class="mm-child">direct (subnet) x.x.x.255</div></div></div>
+    <div class="mm-branch"><div class="mm-node">NAT</div><div class="mm-children"><div class="mm-child">(private IP:port)↔(public IP:port)</div><div class="mm-child">SNAT · DNAT · PAT</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Subnetting — From Requirements to Subnet</h2><div class="rule"></div></div>
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Determine hosts needed</div><div class="sd">How many usable devices per subnet?</div></div></div>
+    <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Find smallest 2^N ≥ (hosts + 2)</div><div class="sd">The +2 reserves network &amp; broadcast addresses.</div></div></div>
+    <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Host bits = N → Prefix = 32 − N</div><div class="sd">Block size = 2^N · Usable = 2^N − 2.</div></div></div>
+    <div class="step"><div class="sn">4</div><div class="sb"><div class="st">Slice the parent block at block-size boundaries</div><div class="sd">Network addresses jump in steps of the block size.</div></div></div>
+  </div>
+  <table class="t small">
+    <tr><th>Hosts needed</th><th>Min 2^N</th><th>Prefix</th><th>Usable hosts</th><th>Hosts needed</th><th>Min 2^N</th><th>Prefix</th><th>Usable hosts</th></tr>
+    <tr><td>2</td><td>4</td><td>/30</td><td>2</td><td>31–62</td><td>64</td><td>/26</td><td>62</td></tr>
+    <tr><td>3–6</td><td>8</td><td>/29</td><td>6</td><td>63–126</td><td>128</td><td>/25</td><td>126</td></tr>
+    <tr><td>7–14</td><td>16</td><td>/28</td><td>14</td><td>127–254</td><td>256</td><td>/24</td><td>254</td></tr>
+    <tr><td>15–30</td><td>32</td><td>/27</td><td>30</td><td>255–510</td><td>512</td><td>/23</td><td>510</td></tr>
+  </table>
+  <div class="card">
+    <div class="c-title">Example 1 — need 50 hosts per subnet inside 10.0.0.0/24</div>
+    <div class="code" style="margin-top:4px"><span class="out">50 + 2 = 52 → next power of 2 = 64 = 2⁶ → host bits 6 → prefix /26 → block 64</span>
+<span class="kw">10.0.0.0/26</span>    hosts .1 – .62      broadcast .63
+<span class="kw">10.0.0.64/26</span>   hosts .65 – .126    broadcast .127
+<span class="kw">10.0.0.128/26</span>  hosts .129 – .190   broadcast .191
+<span class="kw">10.0.0.192/26</span>  hosts .193 – .254   broadcast .255</div>
+  </div>
+  <div class="card">
+    <div class="c-title">Example 2 — how many /28 subnets fit in a /24?</div>
+    <div class="code" style="margin-top:4px"><span class="out">subnets = 2^(new − old) = 2^(28−24) = <span class="fn">16 subnets</span> · hosts each = 2⁴−2 = <span class="fn">14</span></span></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>VLSM — Variable Length Subnet Masking</h2><div class="rule"></div></div>
+  <p>VLSM lets each subnet have a <b>different prefix length</b> — matching each department's real need instead of wasting addresses. <b>Golden rule: allocate the largest subnet first</b>, then work downward.</p>
+  <div class="card acc">
+    <div class="c-title">Allocate 192.168.10.0/24 for four departments</div>
+    <table class="t small" style="margin-bottom:8px">
+      <tr><th>Dept</th><th>Hosts needed</th><th>+2 → 2^N</th><th>Prefix</th><th>Block</th></tr>
+      <tr><td>Engineering</td><td>60</td><td>62 → 64</td><td>/26</td><td>64</td></tr>
+      <tr><td>Marketing</td><td>30</td><td>32 → 32</td><td>/27</td><td>32</td></tr>
+      <tr><td>HR</td><td>10</td><td>12 → 16</td><td>/28</td><td>16</td></tr>
+      <tr><td>Management</td><td>5</td><td>7 → 8</td><td>/29</td><td>8</td></tr>
+    </table>
+    <div class="code" style="margin:0"><span class="out">Allocation — largest first, no overlaps:</span>
+Engineering  <span class="kw">192.168.10.0/26</span>   → .0   – .63    (62 usable)
+Marketing    <span class="kw">192.168.10.64/27</span>  → .64  – .95    (30 usable)
+HR           <span class="kw">192.168.10.96/28</span>  → .96  – .111   (14 usable)
+Management   <span class="kw">192.168.10.112/29</span> → .112 – .119   (6 usable)
+<span class="ch">Remaining: .120 – .255 kept for future growth</span></div>
+  </div>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body">VLSM questions are graded on <b>order + no overlap</b>. Always start at the parent network address, jump by each block size, and show the usable range and broadcast for every subnet.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>IPv6 — the 128-bit Future (Already Here)</h2><div class="rule"></div></div>
+  <ul>
+    <li><b>Why:</b> IPv4 exhausted — IANA ran out of free blocks in <b>2011</b>. IPv6 gives 2¹²⁸ ≈ 3.4×10³⁸ addresses — effectively unlimited.</li>
+    <li><b>Format:</b> 128 bits written as <b>8 groups of 4 hex digits</b> separated by colons:<br><span class="mono">2001:0db8:85a3:0000:0000:8a2e:0370:7334</span></li>
+  </ul>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">Compression Rule 1 — drop leading zeros</div><span class="mono">0db8 → db8</span> &nbsp;·&nbsp; <span class="mono">0000 → 0</span></div>
+    <div class="card acc"><div class="c-title">Compression Rule 2 — one :: for the longest zero-run</div><span class="mono">2001:0db8:0000:0000:0000:8a2e:0370:7334</span><br>→ <b>2001:db8::8a2e:370:7334</b></div>
+  </div>
+  <div class="callout co-warn"><div class="tag">Trap</div><div class="body"><span class="mono">::</span> may be used <b>only once</b> per address (two runs of zeros + :: would be ambiguous). If two runs exist, compress only the <b>longer</b> one (ties → the left one).</div></div>
+  <h3>IPv4 vs IPv6</h3>
+  <table class="t small">
+    <tr><th>Feature</th><th>IPv4</th><th>IPv6</th></tr>
+    <tr><td>Size</td><td>32 bits</td><td><b>128 bits</b></td></tr>
+    <tr><td>Format</td><td>Dotted decimal</td><td>Colon-hex</td></tr>
+    <tr><td>Total addresses</td><td>≈ 4.3 billion</td><td>3.4 × 10³⁸</td></tr>
+    <tr><td>Header</td><td>Variable (20–60 B)</td><td>Fixed 40 B</td></tr>
+    <tr><td>Broadcast</td><td>Yes</td><td class="bad">No — multicast instead</td></tr>
+    <tr><td>NAT</td><td>Necessary</td><td class="good">Not needed</td></tr>
+    <tr><td>ARP</td><td>Yes</td><td>Replaced by NDP</td></tr>
+    <tr><td>Fragmentation</td><td>Routers + hosts</td><td>Source host only</td></tr>
+  </table>
+  <table class="t small">
+    <tr><th>Common IPv6 addresses</th><th>Meaning</th></tr>
+    <tr><td class="mono">::1</td><td>Loopback (like 127.0.0.1)</td></tr>
+    <tr><td class="mono">::</td><td>Unspecified / any</td></tr>
+    <tr><td class="mono">fe80::/10</td><td>Link-local (auto-configured, not routed)</td></tr>
+    <tr><td class="mono">ff00::/8</td><td>Multicast</td></tr>
+    <tr><td class="mono">2000::/3</td><td>Global unicast (public Internet)</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Default Gateway — Direct or Forward?</h2><div class="rule"></div></div>
+  <p>The <b>default gateway</b> is the router's IP on your local network — the door to every other network. Your device makes a simple decision for every destination IP X:</p>
+  <div class="fig">
+    <div class="code" style="max-width:560px; margin-left:auto; margin-right:auto"><span class="out">1. Compute  X AND my_subnet_mask
+2. Result == my network address?
+   <span class="fn">YES → X is on my subnet → deliver directly</span> (ARP for its MAC)
+   <span class="kw">NO  → different network → send to default gateway</span> (ARP for gateway's MAC)</span></div>
+    <div class="fig-cap"><b>Figure 1.</b> The routing decision every host makes before touching the network.</div>
+  </div>
+  <div class="card">
+    <div class="c-title">Worked decision — my IP 192.168.1.5/24, gateway 192.168.1.1</div>
+    <div class="code" style="margin-top:4px"><span class="out">To 192.168.1.20:</span>  .20 AND 255.255.255.0 = 192.168.1.0 <span class="fn">== my network ✓ → direct</span>
+<span class="out">To 8.8.8.8:</span>       8.8.8.8 AND 255.255.255.0 = 8.8.8.0  <span class="kw">≠ my network → gateway</span></div>
+  </div>
+  <div class="code-head"><span>check your gateway</span><span>terminal</span></div>
+  <div class="code"><span class="ch"># Linux</span>                <span class="fn">ip route show</span>   <span class="ch"># "default via 192.168.1.1 dev eth0"</span>
+<span class="ch"># Windows</span>              <span class="fn">route print</span>     <span class="ch"># or ipconfig → "Default Gateway"</span>
+<span class="ch"># macOS</span>                <span class="fn">netstat -rn | grep default</span></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Broadcast &amp; Network Addresses — the Full Picture</h2><div class="rule"></div></div>
+  <table class="t">
+    <tr><th>Address in subnet A.B.C.D/N</th><th>Calculation</th><th>Example (/24)</th></tr>
+    <tr><td><b>Network</b></td><td>All host bits = 0 (IP AND mask)</td><td class="mono">192.168.1.0</td></tr>
+    <tr><td><b>First host</b></td><td>Network + 1</td><td class="mono">192.168.1.1</td></tr>
+    <tr><td><b>Last host</b></td><td>Broadcast − 1</td><td class="mono">192.168.1.254</td></tr>
+    <tr><td><b>Broadcast</b></td><td>All host bits = 1</td><td class="mono">192.168.1.255</td></tr>
+  </table>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">Limited broadcast</div><span class="mono">255.255.255.255</span> — every host on the local subnet; <b>never forwarded</b> by routers. Used by DHCP DISCOVER.</div>
+    <div class="card acc"><div class="c-title">Directed broadcast</div>All host bits = 1 for a <i>specific</i> subnet (e.g. <span class="mono">192.168.1.255</span>) — "everyone in 192.168.1.0/24".</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">6</div><h2>NAT — Sharing One Public IP</h2><div class="rule"></div></div>
+  <p><b>The problem:</b> your ISP gives you <b>one</b> public IP; your house has <b>many</b> devices. <b>NAT</b> (Network Address Translation) lets all of them share it, by rewriting IP:port pairs and remembering the mapping.</p>
+  <div class="fig">
+    <svg viewBox="0 0 680 210" width="100%">
+      <defs><marker id="n" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#0d9488"/></marker></defs>
+      <!-- private side -->
+      <rect x="10" y="30" width="150" height="40" rx="8" class="f-accl" stroke="#0d9488" stroke-width="1.4"/>
+      <text x="85" y="47" class="svg-t" font-size="9.2" font-weight="700" fill="#356f6a" text-anchor="middle">Laptop 192.168.1.5</text>
+      <text x="85" y="61" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">port 52341</text>
+      <rect x="10" y="90" width="150" height="40" rx="8" class="f-accl" stroke="#0d9488" stroke-width="1.4"/>
+      <text x="85" y="107" class="svg-t" font-size="9.2" font-weight="700" fill="#356f6a" text-anchor="middle">Phone 192.168.1.8</text>
+      <text x="85" y="121" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">port 34100</text>
+      <rect x="10" y="150" width="150" height="40" rx="8" class="f-accl" stroke="#0d9488" stroke-width="1.4"/>
+      <text x="85" y="167" class="svg-t" font-size="9.2" font-weight="700" fill="#356f6a" text-anchor="middle">TV 192.168.1.12</text>
+      <text x="85" y="181" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">port 45200</text>
+      <!-- router -->
+      <rect x="250" y="60" width="170" height="100" rx="10" fill="#356f6a"/>
+      <text x="335" y="88" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">HOME ROUTER</text>
+      <text x="335" y="104" class="svg-t" font-size="9.2" fill="#cbe6e2" text-anchor="middle">LAN: 192.168.1.1</text>
+      <text x="335" y="118" class="svg-t" font-size="9.2" fill="#cbe6e2" text-anchor="middle">WAN: 203.0.113.5 (public)</text>
+      <text x="335" y="140" class="svg-t" font-size="8.6" fill="#fff" text-anchor="middle" font-weight="700">NAT table translates</text>
+      <text x="335" y="152" class="svg-t" font-size="8.6" fill="#fff" text-anchor="middle">IP:port ↔ IP:port</text>
+      <!-- internet -->
+      <rect x="540" y="85" width="120" height="50" rx="9" fill="#eff8f6" stroke="#0d9488" stroke-width="1.4"/>
+      <text x="600" y="106" class="svg-t" font-size="9.6" font-weight="700" fill="#356f6a" text-anchor="middle">Internet</text>
+      <text x="600" y="121" class="svg-t" font-size="8.4" fill="#334155" text-anchor="middle">sees only 203.0.113.5</text>
+      <g stroke="#0d9488" stroke-width="2">
+        <line x1="160" y1="50" x2="248" y2="85" marker-end="url(#n)"/>
+        <line x1="160" y1="110" x2="248" y2="110" marker-end="url(#n)"/>
+        <line x1="160" y1="170" x2="248" y2="135" marker-end="url(#n)"/>
+        <line x1="420" y1="110" x2="538" y2="110" marker-end="url(#n)"/>
+      </g>
+      <text x="85" y="22" class="svg-t" font-size="9.6" font-weight="800" fill="#356f6a" text-anchor="middle">PRIVATE SIDE (reusable IPs)</text>
+      <text x="600" y="70" class="svg-t" font-size="9.6" font-weight="800" fill="#356f6a" text-anchor="middle">PUBLIC SIDE</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 2.</b> One public IP, many private devices — the router's NAT table keeps every conversation distinct by port.</div>
+  </div>
+  <div class="grid2">
+    <div class="card">
+      <div class="c-title">Outgoing (SNAT)</div>
+      <div class="code" style="margin:4px 0 0; font-size:9.8px"><span class="out">Laptop:</span> 192.168.1.5:52341 → 142.250.195.46:80
+<span class="kw">Router rewrites src:</span> 203.0.113.5:10001
+<span class="ch">table: 10001 ↔ 192.168.1.5:52341</span></div>
+    </div>
+    <div class="card">
+      <div class="c-title">Reply comes back</div>
+      <div class="code" style="margin:4px 0 0; font-size:9.8px"><span class="out">Google →</span> 203.0.113.5:10001
+<span class="kw">Router lookup 10001</span> → 192.168.1.5:52341
+<span class="fn">Delivers to laptop ✓</span></div>
+    </div>
+  </div>
+  <table class="t small">
+    <tr><th>Variant</th><th>Direction</th><th>Use case</th></tr>
+    <tr><td><b>SNAT</b> (source NAT)</td><td>Outgoing</td><td>Home internet sharing</td></tr>
+    <tr><td><b>DNAT</b> (destination NAT)</td><td>Incoming</td><td><b>Port forwarding</b>, load balancing</td></tr>
+    <tr><td><b>PAT</b> (Port Address Translation / overload)</td><td>Both</td><td>Many devices share one IP via distinct ports — what every home router does</td></tr>
+  </table>
+  <div class="card">
+    <div class="c-title">Port forwarding (DNAT) — exposing a game server</div>
+    <div class="code" style="margin-top:4px"><span class="out">Rule on router:  public port 27015 → 192.168.1.10:27015</span>
+Friend connects to <span class="kw">203.0.113.5:27015</span> → router DNATs → <span class="fn">192.168.1.10:27015</span></div>
+  </div>
+  <div class="callout co-warn"><div class="tag">Costs</div><div class="body">NAT <b>breaks end-to-end</b> (inbound needs port forwarding), is <b>stateful</b> (router tracks every flow; reboot kills sessions), and confuses protocols that embed IPs in their payload (FTP, VoIP/SIP, some games).</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">7</div><h2>Worked Examples (Exam Pattern)</h2><div class="rule"></div></div>
+  <div class="card">
+    <div class="c-title">Example 1 — 172.16.0.0/16 needs 500 subnets; hosts per subnet?</div>
+    <div class="code" style="margin-top:4px"><span class="out">Host bits available = 32−16 = 16 · need 2^N ≥ 500 → N = 9 (512)</span>
+Remaining host bits = 16−9 = 7 → <span class="fn">2⁷−2 = 126 hosts/subnet</span> · new prefix = <span class="fn">/25</span></div>
+  </div>
+  <div class="card">
+    <div class="c-title">Example 2 — compress 2001:0000:0000:0db8:0000:0000:0000:0001</div>
+    <div class="code" style="margin-top:4px"><span class="out">Zero runs: "0000:0000" (groups 2-3) and "0000:0000:0000" (groups 5-7 — longer!)</span>
+Compress the LONGER run:  <span class="fn">2001:0:0:db8::1</span>   <span class="ch">(:: used once)</span></div>
+  </div>
+  <div class="callout co-ana"><div class="tag">Speed tip</div><div class="body">Subnet-count ↔ host-count seesaw: every bit you take from hosts <b>doubles subnets and halves hosts-per-subnet</b>. Keep the seesaw in your head and most MCQs answer themselves.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 4 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Recipe</b>: hosts+2 → smallest 2^N → prefix = 32−N → block = 2^N.</div>
+    <div class="cheat-item"><b>Subnets</b> created = 2^(new prefix − old prefix).</div>
+    <div class="cheat-item"><b>VLSM</b>: allocate largest first; ranges must not overlap; show usable + broadcast.</div>
+    <div class="cheat-item"><b>IPv6</b>: 128-bit, 8×4 hex groups; drop leading zeros; <b>:: once</b> for the longest zero-run.</div>
+    <div class="cheat-item"><b>::1</b> loopback · fe80::/10 link-local · 2000::/3 global · ff00::/8 multicast.</div>
+    <div class="cheat-item"><b>Gateway rule</b>: dest AND mask == my network → direct; else → gateway.</div>
+    <div class="cheat-item"><b>Limited broadcast</b> 255.255.255.255 (local only) vs <b>direct</b> x.x.x.255.</div>
+    <div class="cheat-item"><b>NAT/PAT</b>: (priv IP:port)↔(pub IP:port) table; SNAT out, DNAT/port-forward in; breaks end-to-end.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>You need 100 usable hosts per subnet. The correct prefix is:<ul class="opts"><li>a) /25</li><li>b) /26</li><li>c) /27</li><li>d) /24</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>How many /20 subnets can be carved from 10.0.0.0/16?<ul class="opts"><li>a) 8</li><li>b) 16</li><li>c) 4</li><li>d) 32</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>The shortest form of 2001:0000:0000:0000:0001:0000:0000:0001 is:<ul class="opts"><li>a) 2001::1:0:0:1</li><li>b) 2001:0:0:0:1::1</li><li>c) 2001::1::1</li><li>d) 2001:0:0:0:1:0:0:1</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>Your IP is 10.1.1.50/24 and you send to 10.1.2.5. The packet goes:<ul class="opts"><li>a) directly to 10.1.2.5</li><li>b) to the default gateway</li><li>c) to 255.255.255.255</li><li>d) nowhere — invalid destination</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>A company receives a /22 block. Total usable host addresses:<ul class="opts"><li>a) 1024</li><li>b) 1022</li><li>c) 512</li><li>d) 510</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>State the 4-step subnetting recipe and apply it: 60 hosts per subnet in 192.168.50.0/24 — give the first three subnets with ranges.</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>What is VLSM and why does the "largest first" rule matter?</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Differentiate limited and directed broadcast with addresses for 172.16.5.0/24.</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>What problem does NAT solve, and what problem does it create? (two each)</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>In NAT, who initiates connection tracking — the router or the device? Why does that matter for inbound connections?</div>
+  </div>
+  <h3>C. Long Answer / Numericals (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Numerical</span>Allocate 192.168.20.0/24 via VLSM for: Sales 100 hosts, Tech 50, Admin 20, Guest 10, WAN link 2. Show prefix, range, broadcast for each — largest first, no overlap.</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Explain how a packet from your laptop reaches 8.8.8.8 when your IP is 192.168.1.5/24 — include the gateway decision, ARP's role, and NAT rewriting (both directions).</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Numerical</span>172.16.0.0/16 must be split into 500 subnets. Find the new prefix, usable hosts per subnet, and the first two subnet ranges.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>Draw the NAT translation flow for two devices (laptop :52341 and phone :34100) talking to the same web server simultaneously. Why don't the replies get mixed up?</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> a — 100+2=102 → 2⁷=128 → prefix /25 (126 usable).</div>
+    <div class="a-item"><b>A2.</b> b — 2^(20−16) = 16.</div>
+    <div class="a-item"><b>A3.</b> a — longest zero-run is groups 2–4; only one :: allowed.</div>
+    <div class="a-item"><b>A4.</b> b — 10.1.2.0 ≠ 10.1.1.0 → off-subnet → gateway.</div>
+    <div class="a-item"><b>A5.</b> b — 2¹⁰ − 2 = 1022.</div>
+    <div class="a-item"><b>A6.</b> 60+2=62→64→/26. Subnets: 192.168.50.0/26 (.1–.62, bc .63), .64/26 (.65–.126, bc .127), .128/26 (.129–.190, bc .191).</div>
+    <div class="a-item"><b>A7.</b> Variable-length prefixes per subnet to match real need; largest first guarantees later smaller blocks fit in the remaining space without overlap.</div>
+    <div class="a-item"><b>A8.</b> Limited 255.255.255.255 — local segment only, never routed. Directed 172.16.5.255 — everyone in that specific subnet.</div>
+    <div class="a-item"><b>A9.</b> Solves: IPv4 scarcity, one public IP for many devices, hides internal topology (accidental firewall). Creates: breaks end-to-end inbound, stateful router, protocol breakage (FTP/VoIP).</div>
+    <div class="a-item"><b>A10.</b> The router — it creates the entry when the <b>first outgoing</b> packet of a flow passes. That's why unsolicited inbound has no entry and is dropped unless port-forwarded.</div>
+    <div class="a-item"><b>A11.</b> Sales .0/25 (1–126, bc 127) · Tech .128/26 (129–190, bc 191) · Admin .192/27 (193–222, bc 223) · Guest .224/28 (225–238, bc 239) · WAN .240/30 (241–242, bc 243). Remaining .244–.255 spare.</div>
+    <div class="a-item"><b>A13.</b> 2^N ≥ 500 → N=9 → prefix /25; hosts = 2⁷−2 = 126; first: 172.16.0.0/25 (.1–.126), second: 172.16.128.0/25 (.129–.254).</div>
+    <div class="a-item"><b>A12/A14.</b> Use Figure 2 and the SNAT/reply cards; the key sentence: distinct source <b>ports</b> create distinct NAT entries, so reply packets lookup uniquely by port.</div>
+  </div>
+</div>
+
+</body>
+</html>

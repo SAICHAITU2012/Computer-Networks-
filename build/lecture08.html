@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 8 — Routing and Forwarding II</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#ea580c; --acc-d:#943a0d; --acc-l:#fdf0e7; --acc-m:#f0cbaa; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">08</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Routing and<br>Forwarding — Part II</h1>
+    <div class="tagline">Distance Vector and RIP, count-to-infinity and its cures, Link State and OSPF, BGP between Autonomous Systems, convergence and routing loops.</div>
+    <div class="chips"><span class="chip">Distance Vector</span><span class="chip">RIP</span><span class="chip">Count-to-Infinity</span><span class="chip">Split Horizon</span><span class="chip">Poison Reverse</span><span class="chip">Link State · OSPF</span><span class="chip">LSA · LSDB</span><span class="chip">BGP &amp; AS</span><span class="chip">Convergence</span><span class="chip">Routing Loops</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>How routers LEARN routes without a human: distance-vector tables converging round by round, RIP and the classic count-to-infinity failure with all four fixes, OSPF's flood-and-Dijkstra machine with cost calculation and areas, and BGP — the protocol that glues the world's Autonomous Systems, including how hijacks happen.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Diagrams · Traces · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Trace <b>distance-vector</b> routing convergence across 4 routers</li>
+    <li>Explain <b>count-to-infinity</b> and all four solutions</li>
+    <li>Describe <b>OSPF</b> operation: Hello, LSAs, LSDB, SPF, areas</li>
+    <li>Explain <b>BGP</b> conceptually: AS paths, route selection, hijacking</li>
+    <li>Define <b>convergence</b> and <b>routing loops</b>, with prevention techniques</li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Routing II</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Distance Vector</div><div class="mm-children"><div class="mm-child">share whole table to neighbours</div><div class="mm-child">distributed Bellman-Ford</div><div class="mm-child">→ RIP (15-hop limit)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Count-to-∞</div><div class="mm-children"><div class="mm-child">split horizon</div><div class="mm-child">poison reverse</div><div class="mm-child">triggered updates</div><div class="mm-child">holddown timer</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Link State · OSPF</div><div class="mm-children"><div class="mm-child">Hello → LSA flood → LSDB</div><div class="mm-child">everyone runs Dijkstra</div><div class="mm-child">cost = 100 Mbps / BW</div><div class="mm-child">areas (backbone 0)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">BGP</div><div class="mm-children"><div class="mm-child">between ASes (EGP)</div><div class="mm-child">AS_PATH loop prevention</div><div class="mm-child">policy-driven</div><div class="mm-child">hijack via longer prefix</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Convergence</div><div class="mm-children"><div class="mm-child">RIP: 30s–minutes</div><div class="mm-child">OSPF: 1–10 s</div><div class="mm-child">BGP: minutes–hours</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Distance Vector Routing</h2><div class="rule"></div></div>
+  <p>Every router: (1) knows costs to <b>direct neighbours</b>, (2) periodically sends its <b>entire routing table</b> to those neighbours, (3) updates using the Bellman-Ford rule:</p>
+  <div class="formula"><div class="f">dist[dest] = min( dist[dest],  cost_to_neighbor + neighbor_dist[dest] )</div><div class="fnote">distributed Bellman-Ford — "tell me your distances, I'll add my cost to reach you"</div></div>
+  <div class="card acc">
+    <div class="c-title">Convergence trace — line topology A—B—C—D (all links cost 1)</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>State</th><th>A's table</th><th>B's table</th><th>C's table</th><th>D's table</th></tr>
+      <tr><td>Initial (direct links only)</td><td class="mono">B:1, C:∞, D:∞</td><td class="mono">A:1, C:1, D:∞</td><td class="mono">B:1, D:1, A:∞</td><td class="mono">C:1, A:∞, B:∞</td></tr>
+      <tr><td>After round 1</td><td class="mono">B:1, C:2, D:∞</td><td class="mono">A:1, C:1, D:2</td><td class="mono">B:1, D:1, A:2</td><td class="mono">C:1, B:2, A:∞</td></tr>
+      <tr><td><b>After round 2 — converged</b></td><td class="mono">B:1, C:2, D:3</td><td class="mono">A:1, C:1, D:2</td><td class="mono">B:1, D:1, A:2</td><td class="mono">C:1, B:2, A:3</td></tr>
+    </table>
+    <div style="margin-top:6px">Each round, information travels one more hop — good news spreads at "one hop per round" speed.</div>
+  </div>
+  <h3>RIP — Routing Information Protocol</h3>
+  <table class="t small">
+    <tr><th>Property</th><th>Value</th><th>Property</th><th>Value</th></tr>
+    <tr><td>Metric</td><td>Hop count</td><td>Update interval</td><td>every 30 s</td></tr>
+    <tr><td>Max hops</td><td><b>15 (16 = unreachable)</b></td><td>Algorithm</td><td>distributed Bellman-Ford</td></tr>
+    <tr><td>RIPv1 → RIPv2 adds</td><td>CIDR masks, authentication</td><td>Scope</td><td>small networks only</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>Count-to-Infinity — and the Four Fixes</h2><div class="rule"></div></div>
+  <p><b>Setup:</b> A — B — C in a line. Normal state: B reaches C directly (1), A reaches C via B (2). Now the <b>B–C link fails</b>:</p>
+  <div class="grid2">
+    <div class="card">
+      <div class="c-title">The failure (bad news travels slowly)</div>
+      <div class="code" style="margin-top:4px"><span class="out">B detects failure → sets C = ∞
+A's old table arrives: "C = 2 via me… "
+B thinks: via A → C = 1+2 = 3      ← WRONG (A's path went through B!)
+B tells A: C = 3 → A updates: 4
+A tells B: 4 → B updates: 5  …
+<span class="str">…creeps up to 16 = unreachable (RIP's ∞)</span></span></div>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Why it's absurd</div>
+      A's route to C <i>goes through B</i> — so A can never offer B a shortcut. The routers keep "discovering" routes that route through each other: a <b>transient routing loop</b> where packets bounce A↔B until TTL kills them, and convergence takes minutes.
+    </div>
+  </div>
+  <table class="t">
+    <tr><th>Fix</th><th>Rule</th><th>Effect</th></tr>
+    <tr><td><b>1. Split Horizon</b></td><td>Never advertise a route back on the interface you learned it from</td><td>A never tells B "I can reach C" — the loop never starts</td></tr>
+    <tr><td><b>2. Poison Reverse</b></td><td>Instead of silence: advertise the route back as <b>∞ (16)</b></td><td>Stronger — B pre-knows A has no independent path; instant convergence</td></tr>
+    <tr><td><b>3. Triggered Updates</b></td><td>On failure: flood "C = 16" <b>immediately</b>, don't wait 30 s</td><td>Shrinks the window where stale info circulates</td></tr>
+    <tr><td><b>4. Holddown Timer</b></td><td>After poisoning, ignore claims that the route is reachable for N seconds</td><td>Prevents a slow neighbour's stale table from resurrecting the dead route</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body">The 8-mark version: <i>"Explain count-to-infinity with a diagram and state its solutions."</i> Draw A—B—C, show the failed link, walk the 3→4→5 numbers, then the four fixes with one-line mechanisms. This exact narrative is what graders look for.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Link State Routing — OSPF</h2><div class="rule"></div></div>
+  <p><b>Idea:</b> make every router see the <b>same complete map</b>, then let each run Dijkstra independently — no more neighbour-gossip.</p>
+  <div class="steps">
+    <div class="step"><div class="sn">1</div><div class="sb"><div class="st">Discover neighbours — Hello packets (every 10 s)</div><div class="sd">Agree on hello/dead intervals, area ID, authentication → become neighbours.</div></div></div>
+    <div class="step"><div class="sn">2</div><div class="sb"><div class="st">Build a Link State Advertisement (LSA)</div><div class="sd">"I am R1. Link to R2 costs 10, link to R3 costs 5."</div></div></div>
+    <div class="step"><div class="sn">3</div><div class="sb"><div class="st">Flood LSAs to ALL routers in the area</div><div class="sd">Every router assembles the same Link State Database (LSDB) — the full topology map.</div></div></div>
+    <div class="step"><div class="sn">4</div><div class="sb"><div class="st">Run Dijkstra (SPF) on the LSDB</div><div class="sd">Each router computes shortest paths from itself → identical conclusions → consistent, loop-free tables.</div></div></div>
+    <div class="step"><div class="sn">5</div><div class="sb"><div class="st">React to change</div><div class="sd">Link fails → new LSA floods immediately → SPF re-runs. Convergence in seconds (Lecture 6's LS table explains why this beats DV).</div></div></div>
+  </div>
+  <div class="grid2">
+    <div class="card acc"><div class="c-title">OSPF cost formula</div><div class="formula" style="margin:6px 0 2px"><div class="f">cost = ref_bw / iface_bw</div><div class="fnote">ref = 100 Mbps default → 100M:1 · 10M:10 · 1M:100 — slower links cost more</div></div></div>
+    <div class="card"><div class="c-title">Areas — scaling OSPF</div>Big networks split into <b>areas</b>; LSAs flood <i>within</i> an area only. All areas attach to <b>Area 0 (backbone)</b>; ABRs (Area Border Routers) summarize between areas.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>BGP — the Protocol Between Organisations</h2><div class="rule"></div></div>
+  <ul>
+    <li>An <b>AS (Autonomous System)</b> = one organisation's network with a unique ASN: Google AS15169, Cloudflare AS13335, Jio AS55836, BSNL AS9829.</li>
+    <li><b>BGP (Border Gateway Protocol)</b> = the EGP exchanging routes <b>between</b> ASes. It's <b>policy-driven</b>: business contracts decide paths as much as distance.</li>
+    <li><b>Path-vector:</b> each advertisement carries the full <b>AS_PATH</b> list of networks traversed:</li>
+  </ul>
+  <div class="code"><span class="out">Google announces:</span>      8.8.8.0/24   AS_PATH: [15169]
+<span class="out">Tata re-advertises:</span>     8.8.8.0/24   AS_PATH: [6453, 15169]
+<span class="out">Airtel re-advertises:</span>   8.8.8.0/24   AS_PATH: [9498, 6453, 15169]
+<span class="ch"># Loop prevention: your own ASN already in the path? → discard the route.</span></div>
+  <table class="t small">
+    <tr><th>BGP best-path order (simplified)</th><th>Meaning</th></tr>
+    <tr><td>1. Highest LOCAL_PREF</td><td>Your own policy preference (business choice)</td></tr>
+    <tr><td>2. Shortest AS_PATH</td><td>Fewer organisations crossed</td></tr>
+    <tr><td>3. Lowest MED</td><td>Neighbour's hint about which entry point to prefer</td></tr>
+    <tr><td>4. eBGP over iBGP</td><td>External routes preferred over internal</td></tr>
+    <tr><td>5. Lowest IGP metric to next hop</td><td>Closer exit wins ties</td></tr>
+  </table>
+  <div class="grid2">
+    <div class="card"><div class="c-title">eBGP vs iBGP</div><b>eBGP</b> runs between different ASes (the Internet's stitching). <b>iBGP</b> spreads externally-learned routes <i>inside</i> your own AS so all border routers agree.</div>
+    <div class="card"><div class="c-title">BGP hijacking (real world)</div>Announce someone else's prefix as <b>more specific</b> (a /24 beats their /16 — LPM again!). 2008: Pakistan Telecom announced YouTube's /24 → worldwide YouTube traffic landed in Pakistan. Defence: <b>RPKI</b> cryptographic route signing.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>Convergence &amp; Routing Loops</h2><div class="rule"></div></div>
+  <p><b>Convergence</b> = all routers holding consistent, correct tables. <b>Convergence time</b> = how long after a change before that's true.</p>
+  <table class="t">
+    <tr><th>Protocol</th><th>Convergence</th><th>Why</th></tr>
+    <tr><td>RIP</td><td class="bad">30 s – minutes</td><td>30 s timers + count-to-infinity risk</td></tr>
+    <tr><td>OSPF</td><td class="good">1–10 s</td><td>triggered LSA flooding + instant SPF</td></tr>
+    <tr><td>BGP</td><td>minutes – hours</td><td>policy processing, route dampening, sheer scale</td></tr>
+  </table>
+  <div class="card"><div class="c-title">Routing loop = packets circling forever</div>
+  <div class="code" style="margin-top:4px"><span class="out">A's table: 10.1.0.0/24 → via B        B's table: 10.1.0.0/24 → via A   ← LOOP!</span>
+<span class="ch">packet → A → B → A → B → … until TTL=0 → dropped + ICMP Time Exceeded</span></div></div>
+  <table class="t small">
+    <tr><th>Loop prevention technique</th><th>Protocol</th><th>Mechanism</th></tr>
+    <tr><td><b>TTL</b></td><td>IP (universal safety net)</td><td>Packets die after N hops</td></tr>
+    <tr><td><b>Split horizon / poison reverse</b></td><td>RIP</td><td>Don't feed routes back to their source</td></tr>
+    <tr><td><b>AS_PATH check</b></td><td>BGP</td><td>Own ASN in path → discard</td></tr>
+    <tr><td><b>Full topology</b></td><td>OSPF</td><td>Same map + same algorithm = consistent tables</td></tr>
+    <tr><td><b>STP</b></td><td>Ethernet (L2)</td><td>Block redundant switch links</td></tr>
+  </table>
+  <h3>The big comparison (memorise)</h3>
+  <table class="t">
+    <tr><th>Feature</th><th>RIP</th><th>OSPF</th><th>BGP</th></tr>
+    <tr><td>Type</td><td>Distance Vector</td><td>Link State</td><td>Path Vector</td></tr>
+    <tr><td>Algorithm</td><td>Bellman-Ford</td><td>Dijkstra (SPF)</td><td>Policy-based selection</td></tr>
+    <tr><td>Metric</td><td>Hop count</td><td>Cost (bandwidth)</td><td>Policy attributes</td></tr>
+    <tr><td>Scope</td><td>Inside AS (IGP)</td><td>Inside AS (IGP)</td><td>Between ASes (EGP)</td></tr>
+    <tr><td>Max size</td><td>~15 hops</td><td>Large (with areas)</td><td>Internet-scale</td></tr>
+    <tr><td>Convergence</td><td class="bad">Slow</td><td class="good">Fast</td><td>Slow (deliberate)</td></tr>
+    <tr><td>Loop prevention</td><td>Split horizon</td><td>Full topology</td><td>AS_PATH</td></tr>
+    <tr><td>Standard</td><td>RFC 2453</td><td>RFC 2328</td><td>RFC 4271</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body">Classic: <i>"Two paths exist — 3 hops over 10 Mbps vs 5 hops over 1 Gbps. Which wins in RIP? In OSPF?"</i> RIP picks <b>3 hops</b> (metric = hops). OSPF picks the <b>1 Gbps</b> path (costs 1+1+1+1+1=5 vs 3×10=30 — bandwidth matters, hops don't).</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 8 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>DV</b>: share whole table with neighbours; dist = min(mine, mine-to-nbr + nbr's).</div>
+    <div class="cheat-item"><b>RIP</b>: hop metric, max 15, 30 s updates, Bellman-Ford.</div>
+    <div class="cheat-item"><b>Count-to-∞</b>: failed route resurrected via the neighbour who learned it from you. Fixes: split horizon · poison reverse · triggered updates · holddown.</div>
+    <div class="cheat-item"><b>OSPF</b>: Hello → LSA flood → common LSDB → each runs Dijkstra → fast, loop-free.</div>
+    <div class="cheat-item"><b>OSPF cost = 100 Mbps / BW</b>; areas hang off backbone Area 0.</div>
+    <div class="cheat-item"><b>BGP</b>: between ASes; policy-driven; AS_PATH = loop prevention; eBGP vs iBGP.</div>
+    <div class="cheat-item"><b>Hijack</b> = announcing a more-specific prefix of someone else (LPM abuse); RPKI defends.</div>
+    <div class="cheat-item"><b>Loops</b>: TTL is the universal net; RIP/OSPF/BGP each prevent loops their own way.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>In RIP, a metric of 16 means:<ul class="opts"><li>a) 16 hops away</li><li>b) unreachable / infinity</li><li>c) best route</li><li>d) load balance across 16 paths</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>Split horizon says:<ul class="opts"><li>a) share tables only at midnight</li><li>b) never advertise a route back to the interface it was learned on</li><li>c) use two routers for backup</li><li>d) poison all routes</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>The OSPF database holding the full topology map is the:<ul class="opts"><li>a) RIB</li><li>b) LSDB</li><li>c) ARP cache</li><li>d) NAT table</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>BGP prevents loops using:<ul class="opts"><li>a) TTL</li><li>b>split horizon</li><li>c) AS_PATH containing own ASN → discard</li><li>d) Dijkstra</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>OSPF cost of a 10 Mbps interface (ref 100 Mbps) is:<ul class="opts"><li>a) 1</li><li>b) 10</li><li>c) 100</li><li>d) 0.1</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Trace DV convergence for A—B—C—D from D's perspective (how does D learn about A?).</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>Why does poison reverse converge faster than plain split horizon?</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>List the five OSPF operation steps in order.</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>What is an Autonomous System? Give two real ASNs and their owners.</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>Define convergence. Rank RIP, OSPF, BGP by convergence speed with reasons.</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Long</span>Explain count-to-infinity with the A—B—C diagram, walk through the numbers after the B–C failure, and describe all four solutions precisely.</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Long</span>Describe OSPF operation end-to-end (Hello → LSA → LSDB → SPF → install), the cost formula with three computed examples, and why areas exist.</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Compare RIP, OSPF and BGP in a table (type, algorithm, metric, scope, size, convergence, loop prevention). Which would you deploy: inside a 40-router campus, inside a 3-router lab, between two ISPs?</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>Explain BGP path-vector operation, the simplified best-path order, and how the 2008 YouTube hijack worked — connecting it to Longest Prefix Match from Lecture 7.</div>
+    <div class="q"><span class="q-no">Q15.</span><span class="q-tag">Short</span>Why is BGP called path-vector rather than distance-vector?</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — 16 is RIP's infinity.</div>
+    <div class="a-item"><b>A2.</b> b — routes learned on interface X are never advertised back out of X.</div>
+    <div class="a-item"><b>A3.</b> b — Link State Database; Dijkstra runs on it.</div>
+    <div class="a-item"><b>A4.</b> c — seeing your own ASN means the route already visited you.</div>
+    <div class="a-item"><b>A5.</b> b — 100/10 = 10.</div>
+    <div class="a-item"><b>A6.</b> Round 1: C learns A:2 from B → tells D. Round 2: D records A:3 via C. Info advances one hop per round.</div>
+    <div class="a-item"><b>A7.</b> Split horizon only withholds; poison reverse actively states "∞", so the neighbour's table never holds a stale usable route during the transition.</div>
+    <div class="a-item"><b>A8.</b> Hello/discovery → adjacency/LSA exchange → LSA flooding → SPF (Dijkstra) → route installation.</div>
+    <div class="a-item"><b>A9.</b> One administration's network with an ASN — Google AS15169, Cloudflare AS13335 (also Jio AS55836, BSNL AS9829).</div>
+    <div class="a-item"><b>A10.</b> All routers agree on tables. OSPF (1–10 s, triggered flooding) &gt; RIP (30 s–minutes, timers) — BGP slowest by design (policy, scale).</div>
+    <div class="a-item"><b>A13.</b> Table as in §5. Campus → OSPF; 3-router lab → RIP (or static); ISPs → BGP.</div>
+    <div class="a-item"><b>A14.</b> Path = full AS list rather than a scalar distance; policy attributes dominate; hijack = announcing a /24 inside the victim's /16 — more specific wins LPM → traffic misrouted; RPKI signs announcements.</div>
+    <div class="a-item"><b>A15.</b> It carries the entire AS_PATH (a vector of ASes), not just a hop/cost number — enabling policy + loop detection by inspection.</div>
+  </div>
+</div>
+
+</body>
+</html>

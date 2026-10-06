@@ -1,0 +1,293 @@
+
+===== PAGE 1 =====
+CLASS -1  
+ 
+Here are the comprehensive revision notes for the class session on computer networks, based 
+on the provided audio transcript: 
+Introduction to Computer Networks 
+The session began with a broad overview of computer networks and their significance in 
+modern communication systems. The instructor emphasized the importance of networks in 
+connecting various computing devices over both short and long distances to facilitate 
+communication and data exchange. 
+Purpose of Networks 
+●​
+Networks are essential for communication across distances, enabling the sharing of 
+resources and information. 
+●​
+They are critical in both professional settings and personal life, affecting everything from 
+enterprise data centers to consumer internet experiences. 
+Components of a Computer Network 
+●​
+Nodes and Links: Nodes (also known as devices) are connected via links (the physical or 
+wireless means that transmit data) forming the foundational structure of any network. 
+●​
+Types of Nodes: Common types include computers, routers, switches, and hubs. 
+Types of Delays in Networks 
+Delays are inevitable in network communications, but understanding them can lead to more 
+efficient network design and usage: 
+●​
+Processing Delay: Time taken to process the packet header at each node. 
+●​
+Queuing Delay: Time a packet spends waiting in line at a particular node. 
+●​
+Transmission Delay: Time required to push all of the packet's bits into the link. 
+●​
+Propagation Delay: Time it takes for a signal to propagate through the medium to the next 
+node. 
+Communication Types 
+●​
+Circuit Switching: A dedicated communication path is established between two nodes for the 
+duration of the session, akin to traditional telephone systems. 
+●​
+Packet Switching: Data is broken into packets that travel independently through the network. 
+More efficient and widely used for data networks like the internet. 
+Network Infrastructure Components 
+●​
+Network Edge: Where the end devices such as personal computers are located. 
+●​
+Network Core: The central part of the network infrastructure that connects devices and 
+networks, effectively transporting data between nodes. 
+
+===== PAGE 2 =====
+Basics of Internet 
+●​
+LAN (Local Area Network): Operates within a localized area, such as a home or office, 
+characterized by high data rates and minimal latency issues. 
+●​
+WAN (Wide Area Network): Covers larger geographical areas such as cities and nations, 
+usually operated by telecommunications companies. 
+Key Terminologies 
+●​
+IP Address: A unique address that identifies a device on a network, essential for directing 
+data to the correct destination. 
+●​
+Latency: Refers to the time delay from when a data packet is sent to when it is received. It is 
+influenced by both distance and the speed of the data pathway. 
+Reliability in Networks 
+To ensure reliability, protocols are implemented which manage data transmission, error 
+checking, and retransmission strategies. These protocols are crucial in mitigating disruptions 
+and maintaining a consistent level of service across networks. 
+Real-World Analogies 
+An analogy used during the lecture compares network communication to postal services, where 
+data packets are like letters that are routed through various post offices (nodes) before reaching 
+their destination. 
+Future Sessions 
+The lecture concluded with a preview of upcoming sessions, which will delve deeper into 
+detailed aspects such as packet construction, network design, and security protocols. 
+Through these topics, participants are expected to gain a comprehensive understanding of how 
+networks operate, the challenges involved, and how these systems are designed to overcome 
+such challenges. The knowledge will be applicable in practical scenarios such as building 
+applications and addressing network-related issues. 
+These notes reflect the breadth and depth of topics introduced in the session and are structured 
+to provide you a clear path toward mastering computer networks. 
+ 
+ 
+CLASS - 2 
+ 
+Comprehensive Notes on Networking 
+Concepts 
+
+===== PAGE 3 =====
+1. Introduction to Networking Layers 
+The networking architecture is structured into multiple layers, each having specific 
+responsibilities and functionalities. This organization allows for modular development, 
+abstraction, and independent evolution of technology within each layer without affecting others【
+6:16†transcript.txt】【6:17†transcript.txt】. 
+1.1 Importance of Layers 
+●​
+Modularity: Each layer performs distinct functions, facilitating independent updates and 
+maintenance without impacting the entire network system. 
+●​
+Abstraction: Ensures that each layer only requires knowledge of its immediate neighbors, 
+and not the entire network process. 
+●​
+Flexibility: Technological advances can be integrated within individual layers without 
+jeopardizing system stability【6:16†transcript.txt】【6:17†transcript.txt】. 
+2. OSI and TCP/IP Models 
+2.1 OSI Model 
+●​
+Seven Layers: 
+1.​ Application Layer 
+2.​ Presentation Layer 
+3.​ Session Layer 
+4.​ Transport Layer 
+5.​ Network Layer 
+6.​ Data Link Layer 
+7.​ Physical Layer 
+2.2 TCP/IP Model 
+●​
+Five Layers: This simplified model combines certain OSI layers: 
+○​
+Application 
+○​
+Transport 
+○​
+Network 
+○​
+Data Link 
+○​
+Physical【6:15†transcript.txt】【6:17†transcript.txt】. 
+3. Layer Responsibilities 
+3.1 Physical Layer 
+Responsible for the transmission of raw bits over a communication channel. It utilizes various 
+mediums such as copper wires (electrical signals), fiber optics (optical signals), and wireless 
+(radio signals) for data transmission【6:17†transcript.txt】【6:18†transcript.txt】. 
+3.2 Data Link Layer 
+
+===== PAGE 4 =====
+Handles communication over a single link of the network, encapsulating data into frames with 
+necessary headers (like MAC addresses for local addressing)【6:15†transcript.txt】【
+6:17†transcript.txt】. 
+3.3 Network Layer 
+Focused on moving packets across different networks. It is responsible for logical addressing 
+(IP addresses), routing, and forwarding【6:17†transcript.txt】【6:15†transcript.txt】. 
+3.4 Transport Layer 
+Manages end-to-end communication and data transfer, utilizing protocols such as TCP 
+(guaranteed delivery, flows control, congestion control) and UDP (faster, connectionless)【
+6:15†transcript.txt】. 
+3.5 Application Layer 
+Involves network application protocols like HTTP, DNS, SMTP, which manage user interactions 
+and data exchanges such as web page retrievals and email services【6:15†transcript.txt】【
+6:9†transcript.txt】. 
+4. Encapsulation and Decapsulation 
+Encapsulation is the wrapping of data with protocol-specific header information as it moves 
+downwards from the application layer through other layers before transmission. Decapsulation 
+is the reverse process at the receiver's end【6:13†handwritten.pdf】【6:2†transcript.txt】. 
+5. Network Packet Journey 
+●​
+Application Layer: Converts data into an application packet. 
+●​
+Transport Layer: Adds a transport header, resulting in a transport segment. 
+●​
+Network Layer: Adds an IP header, forming an IP packet. 
+●​
+Data Link Layer: Adds an Ethernet header, creating a frame for physical transmission【
+6:6†transcript.txt】【6:4†transcript.txt】. 
+6. Key Networking Concepts 
+6.1 Throughput and Latency 
+●​
+Throughput: The actual rate at which data is successfully transferred over the network【
+6:5†transcript.txt】. 
+●​
+Latency: The time it takes a data packet to travel from source to destination and back【
+6:8†transcript.txt】【6:5†transcript.txt】. 
+6.2 Transmission and Propagation Delay 
+●​
+Transmission Delay: Time taken to push all packet bits onto the link. 
+●​
+Propagation Delay: Time for a signal to travel across the medium【6:3†transcript.txt】【
+6:19†transcript.txt】. 
+
+===== PAGE 5 =====
+7. Networking Devices 
+7.1 Routers, Switches, and Hubs 
+●​
+Routers: Direct data packets between different networks. 
+●​
+Switches: Connect devices within the same network and direct data based on MAC 
+addresses. 
+●​
+Hubs: Simple devices connecting multiple network components but without intelligent data 
+forwarding【6:7†transcript.txt】. 
+These notes cover the essential concepts discussed in the class, providing a detailed 
+understanding of networking components, processes, and technologies. 
+ 
+ 
+CLASS - 3  
+ 
+Here's a comprehensive set of revision notes based on the live class content related to 
+networking concepts such as MTU, IP Fragmentation, Ethernet Frame Structure, and IP 
+addressing: 
+ 
+Networking Concepts Revision Notes 
+Maximum Transmission Unit (MTU) and Fragmentation 
+MTU 
+●​
+MTU (Maximum Transmission Unit) is the maximum size of a payload that can be carried in 
+a single frame on a given link type【6:8†transcript.txt】. 
+●​
+For Ethernet, the standard MTU is 1500 bytes【6:0†transcript.txt】. 
+IP Fragmentation 
+●​
+IP Fragmentation occurs when a packet is too large to be sent in a single frame according to 
+the MTU. 
+●​
+A 2000-byte IP packet would be broken into two fragments if the MTU is 1500 bytes【
+6:0†transcript.txt】. 
+●​
+Fragmentation increases the number of packets, leading to more processing【
+6:8†transcript.txt】. 
+●​
+TCP protocol often avoids fragmentation by determining the Maximum Segment Size (MSS) 
+to divide data into smaller units【6:0†transcript.txt】. 
+Ethernet Frame Structure 
+Frame Components 
+●​
+Preamble (8 bytes): Synchronizes the receiver's clock. 
+
+===== PAGE 6 =====
+●​
+Destination MAC Address (6 bytes) 
+●​
+Source MAC Address (6 bytes) 
+●​
+EtherType (2 bytes): Indicates the protocol used at the next layer. 
+●​
+Payload: Ranges between 46 to 1500 bytes【6:1†transcript.txt】. 
+●​
+Frame Check Sequence (FCS) (4 bytes): Used for error checking. 
+MAC and IP Addresses 
+●​
+MAC Addresses are unique to devices on the same local network and used for local 
+identification【6:6†transcript.txt】. 
+●​
+IP Addresses provide hierarchical and logical addressing important for routing across 
+multiple networks【6:6†transcript.txt】. 
+IP Addressing and Subnetting 
+IP Address Composition 
+●​
+IPv4 addresses are 32-bit numbers presented as four decimal octets, ranging from 0 to 255【
+6:5†transcript.txt】. 
+Subnetting 
+●​
+Subnet Mask: Divides an IP address into network and host portions. 
+●​
+Traditional IP address classes: 
+○​
+Class A: First octet 1-127, first 8 bits for network【6:16†transcript.txt】. 
+○​
+Class B: First octet 128-191, first 16 bits for network【6:16†transcript.txt】. 
+○​
+Class C: First octet 192-223, first 24 bits for network【6:15†transcript.txt】. 
+Network vs. Host ID 
+●​
+Network ID identifies the specific network. 
+●​
+Host ID identifies a device within that network【6:18†transcript.txt】. 
+CIDR (Classless Inter-Domain Routing) 
+●​
+Modern practices use CIDR, which offers more flexible IP address assignment【
+6:18†transcript.txt】. 
+Protocol Data Unit (PDU) 
+●​
+PDU is a term used for data exchange unit appropriate to each layer of the OSI model: 
+○​
+Application Layer: Application Data 
+○​
+Transport Layer: TCP Segment or UDP Datagram 
+○​
+Network Layer: IP Packet 
+○​
+Data Link Layer: Frame【6:13†transcript.txt】. 
+Key Concepts in Data Communication 
+
+===== PAGE 7 =====
+Address Resolution Protocol (ARP) 
+●​
+Translates IP addresses to MAC addresses using broadcasting【6:14†transcript.txt】. 
+DNS (Domain Name System) 
+●​
+Acts like a phonebook for the internet, translating URLs into IP addresses【6:17†transcript.txt
+】. 
+These notes reflect topics discussed in the class session and structured explanations provided 
+by the instructor . 

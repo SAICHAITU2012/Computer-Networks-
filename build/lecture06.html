@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Lecture 6 — Graph Algorithms for Networking II</title>
+<link rel="stylesheet" href="assets/cn.css">
+<style>:root { --acc:#c026d3; --acc-d:#83268f; --acc-l:#f9effa; --acc-m:#ead3ef; }</style>
+</head>
+<body>
+
+<div class="cover">
+  <div class="mesh"></div>
+  <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+  <div class="inner">
+    <div class="brand"><span class="dot"></span> COMPUTER NETWORKS · MASTER STUDY SERIES</div>
+    <div class="lect-no"><span class="n">06</span><span class="of">/ 13 LECTURES</span></div>
+    <h1>Graph Algorithms<br>for Networking — II</h1>
+    <div class="tagline">Why Dijkstra breaks on negative edges, how Bellman-Ford fixes it, Minimum Spanning Trees, and the great split that shapes Internet routing: Distance Vector vs Link State.</div>
+    <div class="chips"><span class="chip">Bellman-Ford</span><span class="chip">Negative Edges &amp; Cycles</span><span class="chip">Kruskal · Prim</span><span class="chip">Minimum Spanning Tree</span><span class="chip">STP</span><span class="chip">Distance Vector</span><span class="chip">Link State</span><span class="chip">RIP vs OSPF vs BGP</span><span class="chip">Autonomous Systems</span></div>
+    <div class="summary">
+      <div class="s-label">What this lecture gives you</div>
+      <p>The second half of the routing-algorithm story: the counterexample that breaks Dijkstra, Bellman-Ford's V−1 relaxation rounds with a full trace, negative-cycle detection (= routing loops!), MST algorithms and their surprising real use in Ethernet switches (STP), and how the DV-vs-LS choice defines RIP, OSPF and BGP.</p>
+    </div>
+    <div class="foot"><span>Study-Ready Edition</span><span>Concepts · Code · Traces · Exam Prep</span></div>
+  </div>
+</div>
+
+<div class="obj-band">
+  <div class="ob-title">Learning Objectives — after this lecture you can</div>
+  <ul>
+    <li>Explain <b>why Dijkstra fails</b> on negative-weight edges (with the counterexample)</li>
+    <li>Implement and trace <b>Bellman-Ford</b>; explain the V−1 and detect negative cycles</li>
+    <li>Define <b>MST</b>; trace <b>Kruskal</b> and describe <b>Prim</b></li>
+    <li>Connect graph algorithms to protocol families: <b>DV (Bellman-Ford) vs LS (Dijkstra)</b></li>
+  </ul>
+</div>
+
+<div class="mindmap">
+  <div class="mm-rootwrap"><div class="mm-root">Graphs II</div></div>
+  <div class="mm-stem"></div>
+  <div class="mm-branches">
+    <div class="mm-branch"><div class="mm-node">Dijkstra's flaw</div><div class="mm-children"><div class="mm-child">greedy finalisation</div><div class="mm-child">negative edges break it</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Bellman-Ford</div><div class="mm-children"><div class="mm-child">relax ALL edges V−1 times</div><div class="mm-child">detects negative cycles</div><div class="mm-child">O(V × E)</div></div></div>
+    <div class="mm-branch"><div class="mm-node">MST</div><div class="mm-children"><div class="mm-child">V−1 edges, no cycles, min weight</div><div class="mm-child">Kruskal: sort + union-find</div><div class="mm-child">Prim: grow the tree</div></div></div>
+    <div class="mm-branch"><div class="mm-node">STP</div><div class="mm-children"><div class="mm-child">switch loops kill LANs</div><div class="mm-child">block redundant links</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Distance Vector</div><div class="mm-children"><div class="mm-child">share routing TABLE</div><div class="mm-child">→ RIP</div><div class="mm-child">count-to-infinity</div></div></div>
+    <div class="mm-branch"><div class="mm-node">Link State</div><div class="mm-children"><div class="mm-child">flood link STATE</div><div class="mm-child">everyone runs Dijkstra</div><div class="mm-child">→ OSPF</div></div></div>
+    <div class="mm-branch"><div class="mm-node">BGP</div><div class="mm-children"><div class="mm-child">between Autonomous Systems</div><div class="mm-child">path-vector, policy-driven</div></div></div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">1</div><h2>Why Dijkstra Fails on Negative Edges</h2><div class="rule"></div></div>
+  <p>Dijkstra's greedy assumption: <b>once a node is finalised (popped), its shortest distance is correct</b>. Negative edges break exactly this.</p>
+  <div class="fig">
+    <svg viewBox="0 0 560 170" width="100%" style="max-width:560px; display:block; margin:0 auto">
+      <defs><marker id="b" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#c026d3"/></marker></defs>
+      <circle cx="80" cy="80" r="26" fill="#83268f"/><text x="80" y="85" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">A</text>
+      <circle cx="300" cy="46" r="26" fill="#c026d3"/><text x="300" y="51" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">B</text>
+      <circle cx="300" cy="136" r="26" fill="#c026d3"/><text x="300" y="141" class="svg-t" font-size="11" font-weight="800" fill="#fff" text-anchor="middle">C</text>
+      <g stroke="#c026d3" stroke-width="2.2" fill="none">
+        <line x1="106" y1="76" x2="274" y2="50" marker-end="url(#b)"/>
+        <path d="M 105 86 Q 200 145 274 130" marker-end="url(#b)"/>
+        <line x1="300" y1="108" x2="300" y2="76" marker-end="url(#b)"/>
+      </g>
+      <g class="svg-t" font-size="11" font-weight="800" fill="#83268f">
+        <text x="184" y="55">2</text>
+        <text x="180" y="138">4</text>
+        <text x="312" y="96">−3</text>
+      </g>
+      <text x="420" y="55" class="svg-t" font-size="10.5" fill="#334155">TRUE shortest A→B:</text>
+      <text x="420" y="70" class="svg-t" font-size="10.5" font-weight="800" fill="#166534">A → C → B = 4 − 3 = 1</text>
+      <text x="420" y="100" class="svg-t" font-size="10.5" fill="#334155">Dijkstra answers:</text>
+      <text x="420" y="115" class="svg-t" font-size="10.5" font-weight="800" fill="#991b1b">A → B = 2  ✗ WRONG</text>
+      <text x="420" y="145" class="svg-t" font-size="9.5" fill="#64748b">it finalises B (2) before</text>
+      <text x="420" y="158" class="svg-t" font-size="9.5" fill="#64748b">ever exploring C → B</text>
+    </svg>
+    <div class="fig-cap"><b>Figure 1.</b> The classic counterexample — greediness + negative edges = wrong answer.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">2</div><h2>Bellman-Ford — the Fix</h2><div class="rule"></div></div>
+  <p><b>Core idea:</b> relax <b>every edge, V−1 times</b>. Each full pass propagates shortest paths at least one more hop further. Why V−1? Any shortest path (without a negative cycle) visits at most V−1 edges.</p>
+  <div class="code-head"><span>bellman-ford with negative-cycle detection</span><span>JAVA</span></div>
+  <div class="code"><span class="ch">// edges: (u, v, weight) — processing order doesn&#x27;t matter!</span>
+static Map&lt;String, Integer&gt; bellmanFord(List&lt;Edge3&gt; edges, Set&lt;String&gt; vertices,
+                                        String src, Map&lt;String, String&gt; prev) {
+    Map&lt;String, Integer&gt; dist = new HashMap&lt;&gt;();
+    for (String v : vertices) dist.put(v, Integer.MAX_VALUE);
+    dist.put(src, 0);
+
+    for (int i = 0; i &lt; vertices.size() - 1; i++) {          <span class="ch">// V−1 passes</span>
+        for (Edge3 e : edges)
+            if (dist.get(e.u()) != Integer.MAX_VALUE
+                    &amp;&amp; dist.get(e.u()) + e.w() &lt; dist.get(e.v())) {
+                dist.put(e.v(), dist.get(e.u()) + e.w());     <span class="ch">// relax</span>
+                prev.put(e.v(), e.u());
+            }
+    }
+
+    for (Edge3 e : edges) {                                   <span class="ch">// V-th pass = detector</span>
+        if (dist.get(e.u()) != Integer.MAX_VALUE
+                &amp;&amp; dist.get(e.u()) + e.w() &lt; dist.get(e.v()))
+            throw new IllegalStateException(&quot;Negative weight cycle detected!&quot;);
+    }
+    return dist;
+}</div>
+    <div class="code-head"><span>bellman-ford with negative-cycle detection</span><span>C++</span></div>
+  <div class="code"><span class="ch">// edges: (u, v, weight) — processing order doesn&#x27;t matter!</span>
+map&lt;string, int&gt; bellmanFord(vector&lt;Edge3&gt;&amp; edges, int V,
+                             string src, map&lt;string, string&gt;&amp; prev) {
+    map&lt;string, int&gt; dist;
+    for (auto&amp; [v, _] : dist) dist[v] = INT_MAX;
+    dist[src] = 0;
+
+    for (int i = 0; i &lt; V - 1; ++i) {                <span class="ch">// V−1 passes</span>
+        for (auto&amp; e : edges)
+            if (dist[e.u] != INT_MAX &amp;&amp; dist[e.u] + e.w &lt; dist[e.v]) {
+                dist[e.v] = dist[e.u] + e.w;         <span class="ch">// relax</span>
+                prev[e.v] = e.u;
+            }
+    }
+
+    for (auto&amp; e : edges) {                          <span class="ch">// V-th pass = detector</span>
+        if (dist[e.u] != INT_MAX &amp;&amp; dist[e.u] + e.w &lt; dist[e.v])
+            throw runtime_error(&quot;Negative weight cycle detected!&quot;);
+    }
+    return dist;
+}</div>
+  <div class="card acc">
+    <div class="c-title">Trace — edges (A,B,2), (A,C,4), (C,B,−3), source A</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>Round</th><th>Edge processed</th><th>Relaxation</th><th>dist after</th></tr>
+      <tr><td>init</td><td>—</td><td>—</td><td class="mono">{A:0, B:∞, C:∞}</td></tr>
+      <tr><td rowspan="3">1</td><td class="mono">(A,B,2)</td><td>0+2 = 2 &lt; ∞ ✓</td><td class="mono">B=2</td></tr>
+      <tr><td class="mono">(A,C,4)</td><td>0+4 = 4 &lt; ∞ ✓</td><td class="mono">C=4</td></tr>
+      <tr><td class="mono">(C,B,−3)</td><td>4+(−3) = 1 &lt; 2 ✓ <b>improves!</b></td><td class="mono">B=1</td></tr>
+      <tr><td>2</td><td>all edges</td><td>no further improvement</td><td class="mono"><b>converged: {A:0, B:1, C:4}</b></td></tr>
+    </table>
+    <div style="margin-top:6px; font-size:11.5px">Answer: A→B costs <b>1</b> via A → C → B — exactly where Dijkstra returned 2.</div>
+  </div>
+  <h3>Negative cycles = routing loops</h3>
+  <div class="callout co-warn"><div class="tag">Detected</div><div class="body">If a <b>V-th</b> pass can still relax → a negative cycle exists (e.g. A→B(1)→C(−3)→A(1): each lap −1 → "shortest path" is meaningless). <b>In networking, a negative cycle IS a routing loop</b> — packets circulating forever. Bellman-Ford detects it; Dijkstra cannot.</div></div>
+  <table class="t">
+    <tr><th>Feature</th><th>Dijkstra</th><th>Bellman-Ford</th></tr>
+    <tr><td>Negative edges</td><td class="bad">✗ fails</td><td class="good">✓ handles</td></tr>
+    <tr><td>Negative cycles</td><td class="bad">cannot detect</td><td class="good">✓ detects</td></tr>
+    <tr><td>Time complexity</td><td>O((V+E) log V)</td><td>O(V × E)</td></tr>
+    <tr><td>Strategy</td><td>Greedy</td><td>Dynamic programming</td></tr>
+    <tr><td>Network protocol</td><td>OSPF</td><td>RIP, BGP (conceptually)</td></tr>
+    <tr><td>Use when</td><td>weights ≥ 0, performance matters</td><td>negative weights / loop detection needed</td></tr>
+  </table>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">3</div><h2>Minimum Spanning Tree (MST)</h2><div class="rule"></div></div>
+  <div class="grid3">
+    <div class="card acc"><div class="c-title">Spanning tree</div>Connects <b>all vertices</b>, has <b>no cycles</b>, exactly <b>V−1 edges</b>.</div>
+    <div class="card acc"><div class="c-title">Minimum spanning tree</div>The spanning tree with the <b>lowest total edge weight</b>.</div>
+    <div class="card acc"><div class="c-title">Two classics</div><b>Kruskal</b>: sort edges, add if no cycle (union-find). <b>Prim</b>: grow tree from any node, always add cheapest outgoing edge.</div>
+  </div>
+  <div class="code-head"><span>kruskal — sort + union-find</span><span>JAVA</span></div>
+  <div class="code">static List&lt;Edge&gt; kruskal(List&lt;Edge&gt; edges, Set&lt;String&gt; vertices) {
+    edges.sort(Comparator.comparingInt(Edge::w));         <span class="ch">// 1. sort by weight</span>
+    Map&lt;String, String&gt; parent = new HashMap&lt;&gt;();
+    vertices.forEach(v -&gt; parent.put(v, v));
+
+    <span class="ch">// 2. find with path compression (halving)</span>
+    ... find(String x) {
+        while (!parent.get(x).equals(x)) {
+            parent.put(x, parent.get(parent.get(x)));
+            x = parent.get(x);
+        }
+        return x;
+    }
+
+    List&lt;Edge&gt; mst = new ArrayList&lt;&gt;();
+    for (Edge e : edges) {
+        String ru = find(e.u()), rv = find(e.v());
+        if (!ru.equals(rv)) {                 <span class="ch">// 3. different trees? merge (no cycle)</span>
+            parent.put(ru, rv);
+            mst.add(e);
+        }
+    }
+    return mst;                               <span class="ch">// stops naturally at V−1 edges</span>
+}</div>
+    <div class="code-head"><span>kruskal — sort + union-find</span><span>C++</span></div>
+  <div class="code">vector&lt;Edge&gt; kruskal(vector&lt;Edge&gt; edges, int V) {
+    sort(edges.begin(), edges.end(),
+         [](const Edge&amp; a, const Edge&amp; b) { return a.w &lt; b.w; });  <span class="ch">// 1. sort by weight</span>
+    vector&lt;int&gt; parent(V);
+    iota(parent.begin(), parent.end(), 0);
+
+    <span class="ch">// 2. find with path compression (halving)</span>
+    function&lt;int(int)&gt; find = [&amp;](int x) {
+        while (parent[x] != x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+        return x;
+    };
+
+    vector&lt;Edge&gt; mst;
+    for (auto&amp; e : edges) {
+        int ru = find(e.u), rv = find(e.v);
+        if (ru != rv) {                       <span class="ch">// 3. different trees? merge (no cycle)</span>
+            parent[ru] = rv;
+            mst.push_back(e);
+        }
+    }
+    return mst;                               <span class="ch">// stops naturally at V−1 edges</span>
+}</div>
+  <div class="card acc">
+    <div class="c-title">Kruskal trace — the Lecture-5 city graph</div>
+    <table class="t small" style="margin-top:4px">
+      <tr><th>#</th><th>Edge (sorted)</th><th>Decision</th><th>Tree so far</th></tr>
+      <tr><td>1</td><td class="mono">Hyd–Bang (2)</td><td class="good">ADD</td><td>{Hyd, Bang}</td></tr>
+      <tr><td>2</td><td class="mono">Del–Hyd (2)</td><td class="good">ADD</td><td>{Hyd, Bang, Del}</td></tr>
+      <tr><td>3</td><td class="mono">Mum–Hyd (3)</td><td class="good">ADD</td><td>{Hyd, Bang, Del, Mum}</td></tr>
+      <tr><td>4</td><td class="mono">Chen–Bang (4)</td><td class="good">ADD — all connected!</td><td>{all 5} → stop</td></tr>
+      <tr><td>5</td><td class="mono">Mum–Del (5)</td><td class="bad">SKIP (cycle)</td><td>—</td></tr>
+      <tr><td>6</td><td class="mono">Del–Chen (8)</td><td class="bad">SKIP (cycle)</td><td>—</td></tr>
+    </table>
+    <div style="margin-top:6px; font-size:11.5px"><b>MST edges:</b> Hyd–Bang 2, Del–Hyd 2, Mum–Hyd 3, Chen–Bang 4 → <b>total cost 11</b> (4 = V−1 edges ✓).</div>
+  </div>
+  <h3>MST in real networks — Spanning Tree Protocol (STP, IEEE 802.1D)</h3>
+  <div class="grid2">
+    <div class="card"><div class="c-title">The problem</div>Ethernet switches with <b>redundant links</b> create loops — broadcast frames circulate forever (a "broadcast storm") and melt the LAN.</div>
+    <div class="card acc"><div class="c-title">The fix</div>Switches run a <b>distributed MST algorithm</b>: redundant links are <b>logically blocked</b>, leaving a loop-free tree. If an active link fails, STP unblocks a spare — automatic failover.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">4</div><h2>Distance Vector vs Link State — the Big Split</h2><div class="rule"></div></div>
+  <div class="grid2">
+    <div class="card">
+      <div class="c-title">Distance Vector (Bellman-Ford based)</div>
+      <ul>
+        <li>Each router knows costs to <b>direct neighbours</b> only</li>
+        <li>Periodically broadcasts its <b>entire routing table</b> to neighbours</li>
+        <li>Update rule: <span class="mono">dist[dest] = min(dist[dest], cost_to_nbr + nbr_dist[dest])</span></li>
+        <li>Converges over many rounds; partial (local) view</li>
+        <li><b>Protocols:</b> RIP, BGP (path-vector)</li>
+      </ul>
+    </div>
+    <div class="card acc">
+      <div class="c-title">Link State (Dijkstra based)</div>
+      <ul>
+        <li>Each router floods its <b>local link state</b> (neighbours + costs) to ALL routers</li>
+        <li>Every router builds the <b>complete topology map</b></li>
+        <li>Every router independently runs <b>Dijkstra</b> → consistent results</li>
+        <li>Fast convergence; no count-to-infinity</li>
+        <li><b>Protocols:</b> OSPF, IS-IS</li>
+      </ul>
+    </div>
+  </div>
+  <table class="t">
+    <tr><th>Feature</th><th>Distance Vector</th><th>Link State</th></tr>
+    <tr><td>Information shared</td><td>Routing table (distances)</td><td>Link state (direct neighbours)</td></tr>
+    <tr><td>Algorithm basis</td><td>Bellman-Ford</td><td>Dijkstra</td></tr>
+    <tr><td>Topology knowledge</td><td>Partial (local view)</td><td>Full (global view)</td></tr>
+    <tr><td>Convergence speed</td><td class="bad">Slow</td><td class="good">Fast</td></tr>
+    <tr><td>Bandwidth use</td><td>Low (periodic small updates)</td><td>High at first (flooding), then quiet</td></tr>
+    <tr><td>Loop risk</td><td class="bad">Count-to-infinity</td><td class="good">None (consistent full map)</td></tr>
+    <tr><td>Examples</td><td>RIP, BGP</td><td>OSPF, IS-IS</td></tr>
+  </table>
+  <div class="callout co-exam"><div class="tag">Exam</div><div class="body">The one-liner that earns marks: <b>"DV shares distances, LS shares topology."</b> Everything else (convergence speed, loop behaviour, algorithms) follows from that single design difference.</div></div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">5</div><h2>How the Internet Stacks Its Routing</h2><div class="rule"></div></div>
+  <div class="fig">
+    <svg viewBox="0 0 680 240" width="100%">
+      <defs><marker id="as" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto"><path d="M0,0 L7,3 L0,6 z" fill="#c026d3"/></marker></defs>
+      <rect x="230" y="14" width="220" height="42" rx="9" fill="#83268f"/>
+      <text x="340" y="32" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">Global ISP — AS 6453</text>
+      <text x="340" y="46" class="svg-t" font-size="8.6" fill="#ead3ef" text-anchor="middle">internal: OSPF / IS-IS</text>
+      <rect x="230" y="86" width="220" height="42" rx="9" fill="#c026d3"/>
+      <text x="340" y="104" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">National ISP — AS 9829 (BSNL)</text>
+      <text x="340" y="118" class="svg-t" font-size="8.6" fill="#f9effa" text-anchor="middle">internal: OSPF</text>
+      <rect x="230" y="158" width="220" height="42" rx="9" fill="#e879f9"/>
+      <text x="340" y="176" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">Your ISP — AS 1234</text>
+      <text x="340" y="190" class="svg-t" font-size="8.6" fill="#f9effa" text-anchor="middle">internal: OSPF</text>
+      <rect x="520" y="158" width="140" height="42" rx="9" fill="#f0abfc"/>
+      <text x="590" y="176" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">Google — AS 15169</text>
+      <text x="590" y="190" class="svg-t" font-size="8.6" fill="#fff" text-anchor="middle">their own AS</text>
+      <rect x="20" y="158" width="140" height="42" rx="9" fill="#f0abfc"/>
+      <text x="90" y="176" class="svg-t" font-size="10.5" font-weight="800" fill="#fff" text-anchor="middle">Your device</text>
+      <text x="90" y="190" class="svg-t" font-size="8.6" fill="#fff" text-anchor="middle">home network</text>
+      <g stroke="#c026d3" stroke-width="2.4">
+        <line x1="340" y1="56" x2="340" y2="84" marker-end="url(#as)"/>
+        <line x1="340" y1="128" x2="340" y2="156" marker-end="url(#as)"/>
+        <line x1="452" y1="179" x2="518" y2="179" marker-end="url(#as)"/>
+        <line x1="228" y1="179" x2="162" y2="179" marker-end="url(#as)"/>
+      </g>
+      <g class="svg-t" font-size="9.6" font-weight="800" fill="#83268f">
+        <text x="352" y="75">BGP</text>
+        <text x="352" y="147">BGP</text>
+        <text x="470" y="170">BGP</text>
+        <text x="180" y="170">default route</text>
+      </g>
+    </svg>
+    <div class="fig-cap"><b>Figure 2.</b> Inside each Autonomous System: OSPF/IS-IS. Between ASes: BGP. Your home router just points a default route at your ISP.</div>
+  </div>
+  <div class="callout co-info"><div class="tag">AS</div><div class="body">An <b>Autonomous System</b> = a network under one administrative control with a unique ASN: Google AS15169, Cloudflare AS13335, Jio AS55836, BSNL AS9829. <b>IGPs</b> (RIP/OSPF/IS-IS) run <i>inside</i>; <b>BGP</b> (EGP) runs <i>between</i>.</div></div>
+</div>
+
+<div class="cheat">
+  <div class="cheat-title">Lecture 6 — Rapid Revision Card</div>
+  <div class="cheat-grid">
+    <div class="cheat-item"><b>Dijkstra breaks</b> on negative edges — it finalises B(2) before seeing A→C→B = 1.</div>
+    <div class="cheat-item"><b>Bellman-Ford</b>: relax all edges V−1 times; V-th pass still relaxes → negative cycle. O(V×E).</div>
+    <div class="cheat-item"><b>MST</b>: spans all nodes, V−1 edges, no cycles, minimum weight. Kruskal = sort + union-find; Prim = grow.</div>
+    <div class="cheat-item">City graph MST: Hyd–Bang 2, Del–Hyd 2, Mum–Hyd 3, Chen–Bang 4 → <b>11</b>.</div>
+    <div class="cheat-item"><b>STP</b> (802.1D): switches build a spanning tree, block redundant links → no broadcast storms; failover unblocks spares.</div>
+    <div class="cheat-item"><b>DV shares distances</b> (table to neighbours, Bellman-Ford) → RIP; count-to-infinity risk.</div>
+    <div class="cheat-item"><b>LS shares topology</b> (flood LSAs, everyone runs Dijkstra) → OSPF; fast, loop-free.</div>
+    <div class="cheat-item"><b>BGP</b> = path-vector between ASes; inside AS = OSPF/IS-IS; home router = default route.</div>
+  </div>
+</div>
+
+<div class="sec">
+  <div class="sec-head"><div class="num">✦</div><h2>Important Questions — Exam Practice</h2><div class="rule"></div></div>
+  <h3>A. Multiple Choice</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q1.</span><span class="q-tag">MCQ</span>Bellman-Ford relaxes all edges how many times (no negative cycles)?<ul class="opts"><li>a) V</li><li>b) V−1</li><li>c) E</li><li>d) log V</li></ul></div>
+    <div class="q"><span class="q-no">Q2.</span><span class="q-tag">MCQ</span>An MST of a 10-node connected graph has exactly:<ul class="opts"><li>a) 10 edges</li><li>b) 9 edges</li><li>c) 11 edges</li><li>d) depends on weights</li></ul></div>
+    <div class="q"><span class="q-no">Q3.</span><span class="q-tag">MCQ</span>In link-state routing, a router floods:<ul class="opts"><li>a) its full routing table</li><li>b) its local link state (neighbours + costs)</li><li>c) only its default route</li><li>d) MAC addresses</li></ul></div>
+    <div class="q"><span class="q-no">Q4.</span><span class="q-tag">MCQ</span>A negative cycle in a routing graph corresponds to:<ul class="opts"><li>a) a fast path</li><li>b) a routing loop</li><li>c) a broken cable</li><li>d) an MST</li></ul></div>
+    <div class="q"><span class="q-no">Q5.</span><span class="q-tag">MCQ</span>Which protocol runs BETWEEN Autonomous Systems?<ul class="opts"><li>a) OSPF</li><li>b) RIP</li><li>c) BGP</li><li>d) STP</li></ul></div>
+  </div>
+  <h3>B. Short Answer (2–4 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q6.</span><span class="q-tag">Short</span>Trace Bellman-Ford on A→B(3), B→C(−5), A→C(2) from A. Final distances?</div>
+    <div class="q"><span class="q-no">Q7.</span><span class="q-tag">Short</span>Does a negative edge always imply a negative cycle? Justify.</div>
+    <div class="q"><span class="q-no">Q8.</span><span class="q-tag">Short</span>Why must STP block links? What happens on a switch network without it?</div>
+    <div class="q"><span class="q-no">Q9.</span><span class="q-tag">Short</span>What is the maximum hop count in RIP and why was 16 chosen as "unreachable"?</div>
+    <div class="q"><span class="q-no">Q10.</span><span class="q-tag">Short</span>State the single design difference between DV and LS routing, and one consequence of each.</div>
+  </div>
+  <h3>C. Long Answer (5–8 marks)</h3>
+  <div class="qwrap">
+    <div class="q"><span class="q-no">Q11.</span><span class="q-tag">Long</span>With the A/B/C counterexample diagram, explain precisely why Dijkstra's greedy finalisation fails with negative edges, and how Bellman-Ford's repeated relaxation fixes it. Include the full trace.</div>
+    <div class="q"><span class="q-no">Q12.</span><span class="q-tag">Numerical</span>Run Kruskal on Figure 1 of Lecture 5 (city graph): list the sorted edges, the accept/skip decision for each, and the MST total cost. How many edges and why?</div>
+    <div class="q"><span class="q-no">Q13.</span><span class="q-tag">Long</span>Compare Distance Vector and Link State routing (table form): information shared, algorithm, topology view, convergence, loop behaviour, example protocols.</div>
+    <div class="q"><span class="q-no">Q14.</span><span class="q-tag">Long</span>Explain the Internet's routing hierarchy with a diagram: what runs inside an AS, what runs between ASes, and what your home router does. Define Autonomous System and give two real ASNs.</div>
+  </div>
+  <div class="akey">
+    <div class="a-title">Answer Key</div>
+    <div class="a-item"><b>A1.</b> b — V−1 passes; a V-th pass detects negative cycles.</div>
+    <div class="a-item"><b>A2.</b> b — V−1 = 9.</div>
+    <div class="a-item"><b>A3.</b> b — LSAs describe direct links; tables are what DV shares.</div>
+    <div class="a-item"><b>A4.</b> b — cost decreases every lap → packets circulate forever.</div>
+    <div class="a-item"><b>A5.</b> c — BGP is the EGP; OSPF/RIP are IGPs; STP is Layer 2.</div>
+    <div class="a-item"><b>A6.</b> After pass 1: B=3, then C: min(2, 3−5=−2) = −2 → {A:0, B:3, C:−2}; path to C is A→B→C.</div>
+    <div class="a-item"><b>A7.</b> No — a single negative edge is fine (see the A→C→B example); a cycle with negative total is the dangerous case.</div>
+    <div class="a-item"><b>A8.</b> Redundant switch links loop broadcasts forever (broadcast storm). STP builds a tree, blocks spares, unblocks on failure.</div>
+    <div class="a-item"><b>A9.</b> 15 hops; 16 = infinity/unreachable — bounds count-to-infinity damage and keeps tables small.</div>
+    <div class="a-item"><b>A10.</b> DV shares distances (partial view → slow convergence, count-to-infinity); LS shares topology (full view → fast convergence, no count-to-infinity).</div>
+    <div class="a-item"><b>A12.</b> Sorted: H–B(2)✓, D–H(2)✓, M–H(3)✓, C–B(4)✓, M–D(5)✗cycle, D–C(8)✗cycle → MST cost <b>11</b>, 4 edges = V−1.</div>
+    <div class="a-item"><b>A11/A13/A14.</b> Reproduce Figure 1, the DV-vs-LS table, and Figure 2 — labelled diagrams carry the marks.</div>
+  </div>
+  <div class="card acc" style="margin-top:14px;">
+    <div class="c-title">Wrap-Up — carry these into Lecture 7</div>
+    <div class="grid2" style="margin-top:8px;">
+      <div class="callout co-info"><span class="tag">Bellman-Ford</span><div class="body">Relax every edge V−1 times → handles <b>negative edges</b>; a further pass that still improves = <b>negative cycle</b>. Dijkstra has no such safety net.</div></div>
+      <div class="callout co-info"><span class="tag">MST</span><div class="body">Kruskal: sort edges, take the cheapest that doesn't form a cycle (union-find). Prim grows one tree. Both give the same total weight.</div></div>
+      <div class="callout co-warn"><span class="tag">DV vs LS</span><div class="body">DV = "tell your <b>neighbours</b> the whole map" (distance vectors). LS = "tell <b>everyone</b> your neighbourhood" (link-state floods).</div></div>
+      <div class="callout co-ok"><span class="tag">Count to infinity</span><div class="body">Bad news travels slowly in DV — that's why real networks moved to LS (OSPF) inside ASes and patched DV with path vectors (BGP) between them.</div></div>
+    </div>
+    <div class="callout co-exam" style="margin-top:9px;"><span class="tag">Next</span><div class="body"><b>Lecture 7 — Routing &amp; Forwarding I:</b> from algorithms to machines — the routing table, longest-prefix match, and how a router moves a packet in nanoseconds.</div></div>
+  </div>
+</div>
+
+</body>
+</html>
