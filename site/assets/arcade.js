@@ -229,19 +229,45 @@
             <button class="btn primary small" id="prStart">▶ Start shift</button>
           </div>
           <div class="pr-status" id="prStatus">Click ▶ to begin routing packets!</div>
-          <canvas class="pr-canvas" id="prCanvas" style="width:100%;max-height:420px"></canvas>
+          <div class="pr-canvas-shell">
+            <canvas class="pr-canvas" id="prCanvas" style="width:100%;max-height:420px"></canvas>
+            <div class="pr-node-buttons" id="prNodeButtons"></div>
+          </div>
         </div>`;
 
       const canvas = shell.querySelector('#prCanvas');
+      const nodeButtons = shell.querySelector('#prNodeButtons');
       const ctx = canvas.getContext('2d');
+      nodeButtons.innerHTML = Object.keys(nodes).map(k =>
+        `<button class="pr-node-btn" data-node="${k}" type="button" aria-label="Route packet to ${k === 'S' ? 'server' : 'router ' + k}">${k === 'S' ? 'SRV' : k}</button>`
+      ).join('');
       function resize() {
         const r = canvas.parentElement.clientWidth;
         canvas.width = W = r; canvas.height = H = Math.round(r * 0.6);
+        positionNodeButtons();
       }
       resize(); window.addEventListener('resize', resize);
 
       function nx(k) { return nodes[k].x * W; }
       function ny(k) { return nodes[k].y * H; }
+      function positionNodeButtons() {
+        $$('.pr-node-btn', shell).forEach(btn => {
+          const k = btn.getAttribute('data-node');
+          btn.style.left = (nodes[k].x * 100) + '%';
+          btn.style.top = (nodes[k].y * 100) + '%';
+        });
+      }
+      function updateNodeButtons() {
+        $$('.pr-node-btn', shell).forEach(btn => {
+          const k = btn.getAttribute('data-node');
+          const isAt = packet && packet.at === k;
+          const isNext = packet && nbrs[packet.at].includes(k) && dist[k] < dist[packet.at];
+          btn.classList.toggle('at', !!isAt);
+          btn.classList.toggle('next', !!isNext);
+          btn.classList.toggle('server', k === 'S');
+          btn.disabled = !packet || busy || over || isAt;
+        });
+      }
 
       function draw() {
         ctx.clearRect(0,0,W,H);
@@ -272,7 +298,7 @@
         trails.forEach(t => {
           t.age += 0.05;
           const alpha=(1-t.age)*.8;
-          ctx.beginPath(); ctx.arc(t.x,t.y,5*(1-t.age),0,Math.PI*2);
+          ctx.beginPath(); ctx.arc(t.x,t.y,Math.max(0.1, 5*(1-t.age)),0,Math.PI*2);
           ctx.fillStyle=`hsla(${t.hue},90%,70%,${alpha})`; ctx.fill();
         });
 
@@ -335,12 +361,14 @@
         $('#prTtl',shell).textContent=packet.ttl;
         $('#prStatus',shell).textContent=`📦 Packet at ${at} — route to SRV (${dist[at]} hops away)`;
         updateHud();
+        updateNodeButtons();
       }
       function updateHud() {
         $('#prDel',shell).textContent=delivered;
         $('#prLost',shell).textContent=lost;
         $('#prPts',shell).textContent=points;
         if(packet) $('#prTtl',shell).textContent=packet.ttl;
+        updateNodeButtons();
       }
 
       async function forward(k) {
@@ -383,6 +411,7 @@
         }
         updateHud(); busy=false;
         $('#prStatus',shell).textContent=`📦 At ${k} — ${dist[k]} hop${dist[k]!==1?'s':''} to SRV`;
+        updateNodeButtons();
       }
 
       canvas.addEventListener('click', e=>{
@@ -395,11 +424,15 @@
           const d=Math.hypot(nx(k)-mx,ny(k)-my);
           if(d<bd){bd=d;best=k;}
         });
-        if(best && bd<32) forward(best);
+        if(best && bd<48) forward(best);
+      });
+      $$('.pr-node-btn', shell).forEach(btn => {
+        btn.onclick = () => forward(btn.getAttribute('data-node'));
       });
 
       function end(win) {
         over=true; packet=null;
+        updateNodeButtons();
         cancelAnimationFrame(rafId);
         const xp=Math.round(points/5);
         if(G()){ if(win){G().SFX.win();G().confetti();} else G().SFX.wrong(); G().checkAch({type:'rush',delivered}); }
