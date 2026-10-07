@@ -1128,7 +1128,45 @@ a:hover { color: var(--ink); }
   background: rgba(0,0,0,.25);
   border-bottom: 1px solid rgba(99,102,241,.1);
 }
+.pr-canvas-shell { position: relative; }
 .pr-canvas { display: block; width: 100%; cursor: crosshair; }
+.pr-node-buttons { position: absolute; inset: 0; pointer-events: none; }
+.pr-node-btn {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  border: 2px solid rgba(129,140,248,.72);
+  background: rgba(12,18,42,.24);
+  color: transparent;
+  cursor: pointer;
+  pointer-events: auto;
+  font: 900 11px var(--font-mono);
+  transition: transform .14s, border-color .14s, background .14s, box-shadow .14s, color .14s;
+}
+.pr-node-btn:hover,
+.pr-node-btn.next {
+  transform: translate(-50%, -50%) scale(1.16);
+  border-color: #34d399;
+  background: rgba(16,185,129,.2);
+  box-shadow: 0 0 0 8px rgba(16,185,129,.1), 0 0 24px rgba(16,185,129,.35);
+  color: #d1fae5;
+}
+.pr-node-btn.at {
+  border-color: #f59e0b;
+  background: rgba(245,158,11,.24);
+  box-shadow: 0 0 0 8px rgba(245,158,11,.12), 0 0 28px rgba(245,158,11,.45);
+}
+.pr-node-btn.server {
+  border-color: #10b981;
+}
+.pr-node-btn:disabled {
+  cursor: default;
+}
+.pr-node-btn:disabled:not(.at):not(.next) {
+  pointer-events: none;
+}
 
 /* ── Header Builder ── */
 .hb-board { border-radius: var(--r-xl); overflow: hidden; border: 1.5px solid var(--border-2); }
