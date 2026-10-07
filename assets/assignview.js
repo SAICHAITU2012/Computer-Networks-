@@ -66,15 +66,27 @@
   function renderCoding(body, p) {
     const card = document.createElement('div');
     card.className = 'as-code-card';
+    const guide = codingGuide(p);
     card.innerHTML = `
       <div class="qq-meta"><span class="qq-no">${p.num}. ${esc(p.title)}</span><span class="qq-tag">CODING</span></div>
       <p class="as-problem">${esc(p.problem)}</p>
       <div class="callout co-ok"><span class="tag">Key insight</span><div class="body">${esc(p.insight)}</div></div>
+      <div class="as-learn-grid">
+        <div class="as-learn-panel">
+          <div class="as-panel-title">Mental model</div>
+          <p>${esc(guide.mental)}</p>
+        </div>
+        <div class="as-learn-panel">
+          <div class="as-panel-title">What to watch in code</div>
+          <p>${esc(guide.watch)}</p>
+        </div>
+      </div>
       <div class="as-tabs">
-        <button class="hot" data-t="opt">⚡ Optimal solution</button>
-        <button data-t="given">📖 Given solution (PDF)</button>
-        <button data-t="why">🧠 Why it's better</button>
-        <button data-t="viz">▶ Visualisation</button>
+        <button class="hot" data-t="steps">Step-by-step</button>
+        <button data-t="opt">Optimal code</button>
+        <button data-t="given">Given code</button>
+        <button data-t="why">Why better</button>
+        <button data-t="viz">Visualisation</button>
       </div>
       <div class="as-tabbody"></div>`;
     body.appendChild(card);
@@ -83,18 +95,14 @@
     function show(t) {
       tabs.forEach(b => b.classList.toggle('hot', b.getAttribute('data-t') === t));
       tabbody.innerHTML = '';
-      if (t === 'opt') {
-        tabbody.innerHTML = `<div class="c-title" style="color:var(--acc-d)">${esc(p.optimalTitle)}</div>`;
-        const code = document.createElement('div');
-        code.className = 'code';
-        code.textContent = p.optimal;
-        tabbody.appendChild(code);
+      if (t === 'steps') {
+        tabbody.innerHTML = stepBreakdownHtml(guide.steps);
+      } else if (t === 'opt') {
+        tabbody.innerHTML = `<div class="c-title as-code-title">${esc(p.optimalTitle)}</div>`;
+        renderLanguageCode(tabbody, p.optimal, 'optimal-' + p.num);
       } else if (t === 'given') {
         tabbody.innerHTML = `<div class="small" style="color:var(--ink-3);margin:2px 0 6px">${esc(p.givenNote)}</div>`;
-        const code = document.createElement('div');
-        code.className = 'code';
-        code.textContent = p.given;
-        tabbody.appendChild(code);
+        renderLanguageCode(tabbody, p.given, 'given-' + p.num);
       } else if (t === 'why') {
         tabbody.innerHTML = `<p style="font-size:13.6px">${esc(p.optimalWhy)}</p>
           <table class="t small"><tr><th>Approach</th><th>Complexity</th></tr>
@@ -107,7 +115,105 @@
       }
     }
     tabs.forEach(b => b.onclick = () => show(b.getAttribute('data-t')));
-    show('opt');
+    show('steps');
+  }
+
+  function codingGuide(p) {
+    const guides = {
+      climb: {
+        mental: 'Think of every town as having one parent. To ask whether C can reach B, start at B and keep walking to its parent. If that walk reaches C, then C is an ancestor of B.',
+        watch: 'The loop condition is the proof: B keeps becoming A[B - 1], so B moves upward to a smaller-labelled parent until it either reaches C or passes below it.',
+        steps: [
+          ['Read the shape', 'A[i] -> i+1 means node i+1 has parent A[i]. Because A[i] <= i, parents always have smaller labels.'],
+          ['Reverse the question', 'Instead of spreading out from C with DFS, walk upward from B through parents. One path is easier than many branches.'],
+          ['Stop safely', 'while (B > C) keeps climbing only while B could still be below C in the tree.'],
+          ['Return the answer', 'If the climb lands exactly on C, return 1. Otherwise B belongs to another branch, so return 0.'],
+        ],
+      },
+      reach: {
+        mental: 'BFS is a wave. Start at node 1, push its neighbours into a queue, then expand the queue until the target node A appears.',
+        watch: 'The seen array is what prevents infinite revisits. The early return is what makes the code stop as soon as the destination is found.',
+        steps: [
+          ['Build adjacency list', 'For every edge u -> v, store v inside adj[u] so outgoing neighbours are quick to scan.'],
+          ['Seed the queue', 'Put node 1 in the queue and mark it seen before the loop starts.'],
+          ['Pop, test, expand', 'Remove the front node. If it is A, return 1. Otherwise push each unseen neighbour.'],
+          ['Exhausted means no path', 'If the queue becomes empty, every reachable node was tried and A was never found, so return 0.'],
+        ],
+      },
+      peel: {
+        mental: 'A DAG has at least one node with no incoming edges. Kahn’s algorithm peels those safe nodes away. A cycle never becomes peelable.',
+        watch: 'indeg[v] counts blockers. Every time a predecessor is peeled, --indeg[v] removes one blocker. Reaching zero means v can now join the queue.',
+        steps: [
+          ['Count incoming edges', 'Build adj[u] and indeg[v]. indeg says how many prerequisites still point into each node.'],
+          ['Queue zero-indegree nodes', 'Nodes with indeg 0 cannot be trapped inside a cycle, so they are safe to remove first.'],
+          ['Peel and unlock', 'Each peeled node reduces the indegree of its neighbours. Any neighbour that becomes 0 gets queued.'],
+          ['Compare peeled count', 'If peeled == A, everything was removable: no cycle. If nodes remain, they are stuck in or behind a cycle.'],
+        ],
+      },
+      dijkstra: {
+        mental: 'Dijkstra repeatedly settles the currently cheapest known node. From that node, it tries to improve every neighbour distance.',
+        watch: 'The priority queue may contain old distances. The stale-entry check skips a popped pair if dist[u] was already improved later.',
+        steps: [
+          ['Build weighted graph', 'For each undirected edge u-v with weight w, store both u -> v and v -> u.'],
+          ['Initialize distances', 'Everything starts at INF except the source C, which starts at 0 and enters the heap.'],
+          ['Pop cheapest candidate', 'The heap gives the smallest tentative distance. If it is stale, skip it.'],
+          ['Relax neighbours', 'If d + w improves dist[v], update dist[v] and push the new pair into the heap.'],
+          ['Clean unreachable nodes', 'Any INF distance means that node was never reached, so convert it to -1.'],
+        ],
+      },
+    };
+    return guides[p.viz] || {
+      mental: 'First understand the data structure, then follow the loop invariant line by line.',
+      watch: 'Look for what gets initialized, what changes inside the loop, and exactly when the function returns.',
+      steps: [['Read input', 'Identify nodes, edges, and the target condition.'], ['Maintain state', 'Track the arrays or queue used by the algorithm.'], ['Return result', 'Translate the final state into the expected output.']],
+    };
+  }
+
+  function stepBreakdownHtml(steps) {
+    return `<div class="step-breakdown">${steps.map((s, i) => `
+      <div class="step-row">
+        <div class="step-num">${i + 1}</div>
+        <div class="step-content">
+          <div class="step-title">${esc(s[0])}</div>
+          <div class="step-detail">${esc(s[1])}</div>
+        </div>
+      </div>`).join('')}</div>`;
+  }
+
+  function splitCodeByLanguage(src) {
+    const text = String(src || '').trim();
+    const java = text.match(/\/\/ JAVA[\s\S]*?(?=\n\/\/ C\+\+|$)/i);
+    const cpp = text.match(/\/\/ C\+\+[\s\S]*$/i);
+    if (java || cpp) return { java: java ? java[0].trim() : '', cpp: cpp ? cpp[0].trim() : '' };
+    return { java: text, cpp: '' };
+  }
+
+  function renderLanguageCode(host, src, id) {
+    const parts = splitCodeByLanguage(src);
+    const langs = [
+      ['java', 'Java', parts.java],
+      ['cpp', 'C++', parts.cpp],
+    ].filter(x => x[2]);
+    const wrap = document.createElement('div');
+    wrap.className = 'as-code-switch-card';
+    if (langs.length > 1) {
+      wrap.innerHTML = `<div class="lang-switcher" role="tablist">${langs.map((l, i) =>
+        `<button class="lang-btn ${i ? '' : 'active'}" data-lang="${l[0]}" type="button">${l[1]}</button>`).join('')}</div>`;
+    }
+    langs.forEach((l, i) => {
+      const pre = document.createElement('pre');
+      pre.className = 'code code-panel' + (i ? '' : ' active');
+      pre.setAttribute('data-lang', l[0]);
+      pre.textContent = l[2];
+      wrap.appendChild(pre);
+    });
+    host.appendChild(wrap);
+    $$('.lang-btn', wrap).forEach(btn => {
+      btn.onclick = () => {
+        $$('.lang-btn', wrap).forEach(b => b.classList.toggle('active', b === btn));
+        $$('.code-panel', wrap).forEach(p => p.classList.toggle('active', p.getAttribute('data-lang') === btn.getAttribute('data-lang')));
+      };
+    });
   }
 
   /* ================= SHARED VIZ HELPERS ================= */

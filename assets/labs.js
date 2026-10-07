@@ -73,13 +73,14 @@
   ================================================================ */
   LABS.push({
     id: 'lab-osi3d', icon: '🧊', title: 'The OSI Stack in 3D',
-    desc: 'Drag to spin the seven layers, click a slab to inspect what each layer really does, then press <b>Encapsulate</b> to watch your data travel down the tower, gaining a header at every layer.',
+    desc: 'Drag to spin the seven layers, click a slab to inspect what each layer really does. Press <b>Encapsulate ↓</b> to watch data travel down the tower, gaining a header at every layer. Use <b>Step →</b> to advance one layer at a time.',
     mount(shell) {
       const alive = { v: true }; this._teardown = () => { alive.v = false; };
       shell.appendChild(el('div', 'lab-controls', `
-        <button class="btn primary small" id="osiEnc">▶ Encapsulate</button>
-        <button class="btn ghost small" id="osiDec">◀ Decapsulate</button>
-        <button class="btn ghost small" id="osiReset">Reset view</button>
+        <button class="btn primary small" id="osiEnc">▶ Encapsulate ↓</button>
+        <button class="btn gold small" id="osiDec">◀ Decapsulate ↑</button>
+        <button class="btn ghost small" id="osiStep">Step →</button>
+        <button class="btn ghost small" id="osiReset">⟲ Reset</button>
         <span class="small" style="color:var(--ink-3)">drag to rotate · scroll wheel tilts · click a layer</span>`));
       const two = el('div', 'lab-two');
       const stage = el('div', 'osi3d-stage');
@@ -88,43 +89,89 @@
       shell.appendChild(two);
 
       const layers = [
-        { n: 7, name: 'Application', proto: 'HTTP · DNS · SMTP · SSH', pdu: 'Data', col: '#8b5cf6', role: 'Where your app lives — web pages, mail, name lookups. Produces the raw data you actually care about.', dev: 'Browsers, servers, apps' },
-        { n: 6, name: 'Presentation', proto: 'TLS · JPEG · UTF-8', pdu: 'Data', col: '#7d74ee', role: 'Translates, compresses and encrypts — TLS lives here in practice, turning plaintext into ciphertext.', dev: 'Crypto libraries, codecs' },
-        { n: 5, name: 'Session', proto: 'RPC · NetBIOS · sockets API', pdu: 'Data', col: '#6f83e2', role: 'Opens, maintains and tears down the conversation between two machines.', dev: 'OS session layer' },
-        { n: 4, name: 'Transport', proto: 'TCP · UDP', pdu: 'Segment', col: '#5f8ed6', role: 'End-to-end delivery: ports multiplex apps, TCP adds reliability, ordering and flow control.', dev: 'Hosts, firewalls (L4)' },
-        { n: 3, name: 'Network', proto: 'IP · ICMP · OSPF', pdu: 'Packet', col: '#4f9db8', role: 'Logical addressing and routing — gets a packet across many networks to the right host.', dev: 'Routers' },
-        { n: 2, name: 'Data Link', proto: 'Ethernet · ARP · Wi-Fi', pdu: 'Frame', col: '#41ab97', role: 'Delivers a frame across ONE local link using MAC addresses; detects bit errors with the FCS.', dev: 'Switches, NICs' },
-        { n: 1, name: 'Physical', proto: 'Cables · radio · fibre', pdu: 'Bits', col: '#35b97b', role: 'Turns bits into electrons, light or radio — and back. No meaning, just signals.', dev: 'Hubs, cables, antennas' },
+        { n: 7, name: 'Application', proto: 'HTTP · DNS · SMTP · SSH', pdu: 'Data', col: '#8b5cf6',
+          role: 'Where your app lives — web pages, mail, name lookups. Produces the raw data you actually care about.',
+          dev: 'Browsers, servers, apps',
+          encNote: 'App creates an HTTP request: <code>GET / HTTP/1.1</code>. This is raw <b>DATA</b> — no headers yet.',
+          pduParts: [{ label: 'APP DATA', col: '#8b5cf6' }] },
+        { n: 6, name: 'Presentation', proto: 'TLS · JPEG · UTF-8', pdu: 'Data', col: '#7d74ee',
+          role: 'Translates, compresses and encrypts — TLS lives here, turning plaintext into ciphertext.',
+          dev: 'Crypto libraries, codecs',
+          encNote: 'If TLS is used, data is <b>encrypted here</b>. Byte order normalised (UTF-8, big-endian). Receiver decrypts and decodes.',
+          pduParts: [{ label: 'TLS ENC', col: '#7d74ee' }, { label: 'APP DATA', col: '#8b5cf6' }] },
+        { n: 5, name: 'Session', proto: 'RPC · NetBIOS · sockets API', pdu: 'Data', col: '#6f83e2',
+          role: 'Opens, maintains and tears down the conversation between two machines.',
+          dev: 'OS session layer',
+          encNote: 'A <b>session token</b> tracks this conversation. Allows pause/resume (e.g. a long file download).',
+          pduParts: [{ label: 'SESSION', col: '#6f83e2' }, { label: 'TLS ENC', col: '#7d74ee' }, { label: 'APP DATA', col: '#8b5cf6' }] },
+        { n: 4, name: 'Transport', proto: 'TCP · UDP', pdu: 'Segment', col: '#5f8ed6',
+          role: 'End-to-end delivery: ports multiplex apps, TCP adds reliability, ordering and flow control.',
+          dev: 'Hosts, firewalls (L4)',
+          encNote: 'TCP adds a <b>Segment header</b>: src port 54321 → dst port 443, SEQ number, ACK, window size, checksum. PDU name: <b>Segment</b>.',
+          pduParts: [{ label: 'TCP HDR | src:54321 dst:443 SEQ:1000', col: '#5f8ed6' }, { label: 'SESSION+DATA', col: '#6f83e2' }] },
+        { n: 3, name: 'Network', proto: 'IP · ICMP · OSPF', pdu: 'Packet', col: '#4f9db8',
+          role: 'Logical addressing and routing — gets a packet across many networks to the right host.',
+          dev: 'Routers',
+          encNote: 'IP adds a <b>Packet header</b>: src 192.168.1.5, dst 93.184.216.34, TTL 64, proto TCP. PDU name: <b>Packet</b>. Routers forward based on this.',
+          pduParts: [{ label: 'IP HDR | src:192.168.1.5 dst:93.184.216.34 TTL:64', col: '#4f9db8' }, { label: 'TCP SEGMENT', col: '#5f8ed6' }] },
+        { n: 2, name: 'Data Link', proto: 'Ethernet · ARP · Wi-Fi', pdu: 'Frame', col: '#41ab97',
+          role: 'Delivers a frame across ONE local link using MAC addresses; detects bit errors with the FCS.',
+          dev: 'Switches, NICs',
+          encNote: 'Ethernet adds a <b>Frame header</b>: dst MAC = router (AA:BB:CC), src MAC = your NIC (11:22:33), EtherType 0x0800. <b>FCS trailer</b> appended. PDU: <b>Frame</b>.',
+          pduParts: [{ label: 'ETH HDR | dst:AA:BB:CC src:11:22:33', col: '#41ab97' }, { label: 'IP PACKET', col: '#4f9db8' }, { label: 'FCS', col: '#2d9976' }] },
+        { n: 1, name: 'Physical', proto: 'Cables · radio · fibre', pdu: 'Bits', col: '#35b97b',
+          role: 'Turns bits into electrons, light or radio — and back. No meaning, just signals.',
+          dev: 'Hubs, cables, antennas',
+          encNote: '🚀 Frame converted to <b>electrical signals / light / radio waves</b> and transmitted bit-by-bit. At the receiver, full decapsulation strips headers layer by layer back up to the app.',
+          pduParts: [{ label: '01001000 01000101 01000001 01000100...', col: '#35b97b' }] },
       ];
+
       const tower = el('div', 'osi3d');
       stage.appendChild(tower);
-      const labels = {};
+      const labelsMap = {};
       layers.forEach((L, i) => {
         const slab = el('div', 'osi-slab');
         slab.style.setProperty('--slab', L.col);
         slab.style.transform = `translateZ(${(6 - i) * 40}px)`;
         slab.innerHTML = `<div class="slab-label"><span class="n">LAYER ${L.n}</span><span class="nm">${L.name}</span><span class="pd">${L.pdu} · ${L.proto}</span></div>`;
         tower.appendChild(slab);
-        labels[L.n] = slab;
+
+        function showDetail(LL) {
+          detail.innerHTML = `
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+              <div style="background:${LL.col};width:10px;height:40px;border-radius:4px;flex:none"></div>
+              <div>
+                <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:1px;opacity:.6">Layer ${LL.n}</div>
+                <h4 style="margin:0;font-size:17px">${LL.name}</h4>
+              </div>
+            </div>
+            <p style="margin:0 0 12px;font-size:13px;line-height:1.6">${LL.role}</p>
+            <table class="kv-table" style="margin-bottom:12px">
+              <tr><td>Protocols</td><td>${LL.proto}</td></tr>
+              <tr><td>PDU name</td><td><b>${LL.pdu}</b></td></tr>
+              <tr><td>Devices</td><td>${LL.dev}</td></tr>
+            </table>
+            <div style="background:var(--bg-2);border:1.5px solid var(--border);border-radius:10px;padding:12px;margin-top:4px">
+              <div style="font-size:11px;font-weight:800;letter-spacing:.5px;margin-bottom:6px;color:${LL.col}">WHAT THIS LAYER ADDS (ENCAPSULATION)</div>
+              <div style="font-size:12.5px;line-height:1.6">${LL.encNote}</div>
+              <div class="osi-enc-packet" style="margin-top:10px">${LL.pduParts.map(p => `<div class="hdr" style="background:${p.col};font-size:10.5px">${p.label}</div>`).join('')}</div>
+            </div>`;
+        }
+
         slab.onclick = () => {
           $$('.osi-slab', tower).forEach(s => s.classList.remove('sel', 'showlabel'));
           slab.classList.add('sel', 'showlabel');
-          detail.innerHTML = `<h4>Layer ${L.n} — ${L.name}</h4>
-            <p style="margin:4px 0 8px">${L.role}</p>
-            <table class="kv-table">
-              <tr><td>Protocols</td><td>${L.proto}</td></tr>
-              <tr><td>PDU name</td><td>${L.pdu}</td></tr>
-              <tr><td>Devices</td><td>${L.dev}</td></tr>
-            </table>`;
+          showDetail(L);
         };
         slab.addEventListener('mouseenter', () => { tower.classList.add('focused'); slab.classList.add('showlabel'); });
         slab.addEventListener('mouseleave', () => {
           slab.classList.remove('showlabel');
           if (!$$('.osi-slab.sel', tower).some(s => s.classList.contains('showlabel'))) tower.classList.remove('focused');
         });
+        labelsMap[L.n] = { slab, show: () => showDetail(L) };
       });
-      // default selection
-      labels[7].onclick();
+      labelsMap[7].slab.classList.add('sel');
+      labelsMap[7].show();
 
       // rotate logic
       let rx = 62, rz = 45, dragging = false, lx = 0, ly = 0;
@@ -139,40 +186,56 @@
       };
       stage.onpointerup = () => { dragging = false; };
       stage.onwheel = e => { e.preventDefault(); rx = Math.max(15, Math.min(88, rx - e.deltaY * 0.05)); apply(); };
-      $('#osiReset', shell).onclick = () => { rx = 62; rz = 45; apply(); };
+      $('#osiReset', shell).onclick = () => { rx = 62; rz = 45; apply(); labelsMap[7].slab.classList.add('sel'); labelsMap[7].show(); };
 
-      // encapsulate / decapsulate: payload descends the Z axis
+      // encapsulate / decapsulate: step through layers
       const payload = el('div', 'osi-payload', 'DATA');
       tower.appendChild(payload);
       let busy = false;
-      const steps7to1 = [
-        ['DATA', 'Your app writes: “GET / HTTP/1.1”'],
-        ['+TCP', 'L4 wraps a segment: ports 52311 → 443, sequence number'],
-        ['+IP', 'L3 wraps a packet: src 192.168.1.5 → dst 142.250.195.46'],
-        ['+ETH', 'L2 wraps a frame: src MAC → gateway MAC, FCS trailer'],
-        ['BITS', 'L1 encodes to signals onto the wire 📡'],
-      ];
-      $('#osiEnc', shell).onclick = async () => {
-        if (busy) return; busy = true;
+      let stepIdx = -1;
+      const pLabels = ['DATA', '+TLS', '+SES', '+TCP', '+IP ', '+ETH', 'BITS'];
+
+      function activateLayer(idx) {
+        $$('.osi-slab', tower).forEach(s => s.classList.remove('sel', 'showlabel'));
+        const L = layers[idx];
+        if (!L) return;
+        labelsMap[L.n].slab.classList.add('sel', 'showlabel');
+        labelsMap[L.n].show();
         const zTop = 6 * 40, zBot = 0;
-        for (let i = 0; i < steps7to1.length && alive.v; i++) {
-          payload.textContent = steps7to1[i][0];
-          payload.style.transform = `translateZ(${zTop - (zTop - zBot) * (i / 4)}px)`;
-          detail.innerHTML = `<h4>Going down…</h4><p>${steps7to1[i][1]}</p>`;
-          await sleep(700);
-        }
-        await sleep(300);
-        if (alive.v) detail.innerHTML = `<h4>On the wire!</h4><p>The frame crosses one link, then decapsulation climbs back up at the next hop — headers are read and stripped, one layer at a time.</p>`;
-        busy = false;
-      };
-      $('#osiDec', shell).onclick = async () => {
+        payload.textContent = pLabels[idx] || 'DATA';
+        payload.style.transform = `translateZ(${zTop - (zTop - zBot) * (idx / 6)}px)`;
+        payload.style.background = L.col;
+      }
+
+      async function playSeq(seq) {
         if (busy) return; busy = true;
-        for (let i = steps7to1.length - 1; i >= 0 && alive.v; i--) {
-          payload.textContent = steps7to1[i][0];
-          payload.style.transform = `translateZ(${(i / 4) * 6 * 40}px)`;
-          await sleep(500);
+        stepIdx = -1; payload.style.display = 'flex';
+        for (let i = 0; i < seq.length && alive.v; i++) {
+          stepIdx = seq[i]; activateLayer(stepIdx); await sleep(1600);
+        }
+        if (alive.v && seq[0] === 0) {
+          detail.innerHTML = `<div style="padding:12px 0">
+            <h4 style="color:#35b97b">🚀 Frame is on the wire!</h4>
+            <p>All 7 layers wrapped the data. The frame travels as <b>bits (electrons/light/radio)</b> toward the router.</p>
+            <div class="step-breakdown" style="margin-top:12px">
+              <div class="step-row"><div class="step-num">1</div><div class="step-content"><div class="step-title">At the router</div><div class="step-detail">L2 frame is stripped. Router reads the IP header to find the next hop.</div></div></div>
+              <div class="step-row"><div class="step-num">2</div><div class="step-content"><div class="step-title">New frame, same packet</div><div class="step-detail">Router creates a NEW Ethernet frame: its own MAC as source, next-hop MAC as destination. The IP packet inside is untouched.</div></div></div>
+              <div class="step-row"><div class="step-num">3</div><div class="step-content"><div class="step-title">At the destination</div><div class="step-detail">Full decapsulation: ETH → IP → TCP → Session → Presentation → Application. The app receives the original HTTP request.</div></div></div>
+            </div>
+          </div>`;
+        } else if (alive.v) {
+          detail.innerHTML = `<h4 style="color:#8b5cf6">✅ Decapsulation complete!</h4><p>All headers stripped. The original app data is delivered — exactly as sent.</p>`;
         }
         busy = false;
+      }
+
+      $('#osiEnc', shell).onclick = () => playSeq([0,1,2,3,4,5,6]);
+      $('#osiDec', shell).onclick = () => playSeq([6,5,4,3,2,1,0]);
+      $('#osiStep', shell).onclick = () => {
+        if (busy) return;
+        if (stepIdx < 0 || stepIdx >= 6) stepIdx = -1;
+        stepIdx++; if (stepIdx > 6) stepIdx = 0;
+        activateLayer(stepIdx);
       };
     },
     teardown() { if (this._teardown) this._teardown(); },
@@ -234,42 +297,49 @@
       const steps = [];
       const S = (path, color, label, rev, dur, log) => steps.push({ path, color, label, rev, dur, log });
 
-      // journey steps
-      S(null, 0, 0, 0, 0, '<b>Enter pressed.</b> The browser wants <b>http(s)://$(URL)</b> — but it can only talk to an <b>IP address</b>. First: resolve the name.');
-      S(null, 0, 0, 0, 0, '<b>Browser cache</b> — miss. <span class="mono">/etc/hosts</span> — miss. Time for the real thing: a <b>DNS lookup</b>.');
-      S('pSeg1', '#2563eb', 'DNS', 0, 600, 'A DNS query is just a UDP packet: <b>src 192.168.1.5:53xx → dst 192.168.1.1:53</b>. The gateway forwards it to the ISP resolver.');
-      S('pUp', '#2563eb', '→ resolver', 0, 450, 'The <b>recursive resolver</b> takes over — its cache is empty (cold start), so it will climb the hierarchy for you.');
-      S('pR1', '#8a5cf6', 'root', 0, 600, '→ <b>Root server</b>: “Who handles <b>.com</b>?” Root answers with the .com TLD servers (that answer gets cached for next time).');
-      S('pR2', '#8a5cf6', '.com TLD', 0, 500, '→ <b>.com TLD</b>: “Who handles <b>example.com</b>?” TLD answers: the domain’s authoritative nameservers.');
-      S('pR3', '#8a5cf6', 'auth', 0, 600, '→ <b>Authoritative server</b> for example.com — it holds the actual records.');
-      S('pR3', '#16a34a', 'A 93.184.216.34', true, 600, '✅ Answer: <b>A 93.184.216.34, TTL 3600</b>. The resolver caches it and passes it back down.');
-      S('pUp', '#16a34a', 'IP!', true, 450, 'The resolver returns the IP to your laptop. Your OS caches it too — the next visit will be instant.');
-      S('pSeg1', '#e2b95d', 'SYN', 0, 500, 'Now the <b>TCP three-way handshake</b>. ① SYN — “let’s talk, my sequence number is x”. Client → SYN_SENT.');
-      S('pSeg2', '#e2b95d', 'SYN', 0, 500, '');
-      S('pSeg3', '#e2b95d', 'SYN', 0, 600, '');
-      S('pSeg3', '#16a34a', 'SYN-ACK', true, 600, '② SYN-ACK — server agrees, “my sequence is y, I got x+1”.');
-      S('pSeg2', '#16a34a', 'SYN-ACK', true, 500, '');
-      S('pSeg1', '#16a34a', 'SYN-ACK', true, 500, '');
-      S('pSeg1', '#e2b95d', 'ACK', 0, 500, '③ ACK — both sides are <b>ESTABLISHED</b>. A reliable, ordered byte pipe now exists end-to-end.');
-      S('pSeg2', '#e2b95d', 'ACK', 0, 450, '');
-      S('pSeg3', '#2c6b46', 'GET /', 0, 600, '<b>HTTP GET /</b> rides inside the TCP pipe. Layers wrap it: data → segment → packet → frame.');
-      S('pSeg3', '#e2b95d', '200 OK', true, 700, 'The server thinks, then answers: <b>200 OK + HTML</b> — possibly thousands of bytes over many packets (TCP reassembles and re-orders them).');
-      S('pSeg2', '#e2b95d', '200 OK', true, 500, '');
-      S('pSeg1', '#e2b95d', '200 OK', true, 500, 'Browser parses the HTML, fetches CSS/JS/images (more journeys like this one)… and paints the page. 🎉');
+      // -- Phase 1: DNS (Steps 1-9) --
+      S(null,0,0,0,0,'\ud83d\udda5 <b>Step 1 \u2014 Enter pressed.</b> Browser wants to load <b>http://$(URL)</b>. It can only route to an IP address \u2014 domain names must first be resolved via DNS.');
+      S(null,0,0,0,0,'\ud83d\udd0d <b>Step 2 \u2014 Cache check.</b> Browser DNS cache \u2192 miss. <span class="mono">/etc/hosts</span> \u2192 miss. Must contact the <b>recursive resolver</b> (ISP DNS server).');
+      S('pSeg1','#2563eb','DNS?',0,1300,'\ud83d\udce4 <b>Step 3 \u2014 DNS query sent.</b> UDP datagram: src 192.168.1.5:53271 \u2192 dst 192.168.1.1:53. Router forwards it upstream. The query is ~40 bytes.');
+      S('pUp','#2563eb','\u2192 resolver',0,1200,'\ud83d\udce1 <b>Step 4 \u2014 Recursive resolver takes over.</b> Cache is cold. It climbs root \u2192 TLD \u2192 authoritative on your behalf as your DNS agent.');
+      S('pR1','#8a5cf6','\u2192 Root',0,1400,'\ud83c\udf0d <b>Step 5 \u2014 Root server query.</b> "Who handles .com?" 13 root clusters reply with .com TLD addresses. Answer cached ~48 hours.');
+      S('pR2','#8a5cf6','\u2192 TLD',0,1300,'\ud83d\udd16 <b>Step 6 \u2014 .com TLD query.</b> "Who is authoritative for example.com?" TLD returns nameserver names. Cached hours to days.');
+      S('pR3','#8a5cf6','\u2192 Auth',0,1400,'\ud83c\udfe0 <b>Step 7 \u2014 Authoritative query.</b> This server holds the DNS zone. It KNOWS the A record for example.com and replies directly.');
+      S('pR3','#16a34a','A \u2713',true,1400,'\u2705 <b>Step 8 \u2014 Answer returned!</b> A record: <b>example.com \u2192 93.184.216.34, TTL 3600s</b>. Resolver caches it. Future lookups skip hierarchy for 1 hour.');
+      S('pUp','#16a34a','IP \u2713',true,1200,'\ud83d\udce9 <b>Step 9 \u2014 IP delivered.</b> OS caches 93.184.216.34 (TTL=3600s). Next visit connects straight to the server \u2014 no DNS climb needed.');
+      // -- Phase 2: TCP Three-Way Handshake (Steps 10-17) --
+      S('pSeg1','#e2b95d','SYN \u2460',0,1300,'\ud83e\udd1d <b>Step 10 \u2014 TCP SYN (\u2460/3).</b> Laptop picks ISN x=1000, sends SYN to 93.184.216.34:443. State: SYN_SENT. Begins reliable connection setup.');
+      S('pSeg2','#e2b95d','SYN',0,1000,'\u23e9 <b>Step 11</b> \u2014 SYN hops through ISP. TTL decrements at each router. IP dst never changes; Ethernet MACs rewritten every hop.');
+      S('pSeg3','#e2b95d','SYN',0,1200,'\u23e9 <b>Step 12</b> \u2014 SYN arrives at web server. Server allocates TCB, picks ISN y=5000. State: SYN_RECEIVED.');
+      S('pSeg3','#16a34a','SYN-ACK \u2461',true,1400,'\ud83e\udd1d <b>Step 13 \u2014 SYN-ACK (\u2461/3).</b> Server sends SEQ=y=5000, ACK=x+1=1001. "Got your SYN; here is mine; confirming receipt."');
+      S('pSeg2','#16a34a','SYN-ACK',true,1000,'\u23e9 <b>Step 14</b> \u2014 SYN-ACK travels back. Routers forward based on IP dst=192.168.1.5 via routing tables.');
+      S('pSeg1','#16a34a','SYN-ACK',true,1200,'\u23e9 <b>Step 15</b> \u2014 SYN-ACK received at laptop. Laptop moves to ESTABLISHED. Sends final ACK (total: 1.5 RTTs).');
+      S('pSeg1','#e2b95d','ACK \u2462',0,1200,'\ud83e\udd1d <b>Step 16 \u2014 ACK (\u2462/3).</b> SEQ=1001, ACK=5001. Both sides ESTABLISHED. Reliable, ordered, full-duplex byte stream ready end-to-end.');
+      S('pSeg2','#e2b95d','ACK',0,1000,'\u23e9 <b>Step 17</b> \u2014 ACK arrives. Server confirms ESTABLISHED. TCP pipe is open \u2014 HTTP data can now flow.');
+      // -- Phase 3: HTTP Request & Response (Steps 18-21) --
+      S('pSeg3','#2c6b46','HTTP GET',0,1400,'\ud83d\udce8 <b>Step 18 \u2014 HTTP GET.</b> Browser sends GET / HTTP/1.1 + Host header. Encapsulated: DATA \u2192 TCP segment \u2192 IP packet \u2192 Ethernet frame \u2192 bits.');
+      S('pSeg3','#e2b95d','200 OK',true,1600,'\ud83d\udce6 <b>Step 19 \u2014 HTTP 200 OK.</b> Server sends HTML + headers. Large pages split into many TCP segments; SEQ numbers keep them ordered for reassembly.');
+      S('pSeg2','#e2b95d','200 OK',true,1200,'\u23e9 <b>Step 20</b> \u2014 Response packets return. Routers read IP dst=192.168.1.5. Ethernet MACs rewritten (src = router egress MAC) at every hop.');
+      S('pSeg1','#e2b95d','\u2713 Done!',true,1200,'\ud83c\udf89 <b>Step 21 \u2014 Page loaded!</b> Browser reassembles TCP segments in SEQ order. HTML parsed \u2192 page renders. CSS/JS/images: new HTTP requests, usually reusing the same TCP connection (Keep-Alive).');
 
       async function run(startIdx) {
-        const mode = $('#jMode', shell).value;
-        const url = $('#jUrl', shell).value.trim() || 'www.example.com';
+        const mode = ($('#jMode', shell) || {}).value || 'run';
+        const urlEl = $('#jUrl', shell);
+        const url = (urlEl ? urlEl.value : 'www.example.com').trim() || 'www.example.com';
         svg._dead = false;
+        let stepCount = 0;
         for (let i = startIdx; i < steps.length && alive.v; i++) {
           const st = steps[i];
-          const text = st.log.replace('$(URL)', esc(url));
-          state().textContent = 'step ' + (i + 1) + '/' + steps.length;
+          const text = (st.log || '').replace('$(URL)', esc(url));
           if (st.path) await travel(svg, $('#' + st.path, svg), st.color, { label: st.label, reverse: st.rev, dur: st.dur });
-          else await sleep(650);
+          else await sleep(1400);
           if (!alive.v) return;
-          logTo(logBox, i + 1, text);
-          if (mode === 'step') {
+          if (text) {
+            stepCount++;
+            state().textContent = 'Step ' + stepCount + ' / 21';
+            logTo(logBox, stepCount, text);
+          }
+          if (mode === 'step' && text) {
             const btn = document.createElement('button');
             btn.className = 'btn primary small'; btn.textContent = 'Next step →'; btn.style.margin = '6px 0';
             const holder = el('div'); holder.appendChild(btn);
@@ -278,10 +348,10 @@
             if (!alive.v) return;
           }
         }
-        state().textContent = 'done ✓';
+        state().textContent = '✅ Journey complete!';
       }
       $('#jGo', shell).onclick = () => {
-        logBox.innerHTML = '';
+        logBox.innerHTML = '<div style="opacity:.5;font-size:12px;padding:4px 0">🚀 Journey starting — watch packets travel in real time!</div>';
         run(0);
       };
     },

@@ -498,6 +498,36 @@
     </div>`;
   }
 
+  /* ── Mind Map: per-lecture visual overview ── */
+  const LECTURE_MINDMAPS = {
+    1: { center: 'Computer Networks', nodes: ['Nodes & Links','LAN/MAN/WAN','Internet Tiers','Network Edge vs Core','Packet Switching','Circuit Switching','Propagation Delay','Transmission Delay','Throughput','Hub/Switch/Router','OSI Model','TCP/IP Model'] },
+    2: { center: 'Layered Comms & OSI', nodes: ['7 OSI Layers','Encapsulation','PDU Names','Data/Segment/Packet/Frame','Headers & Trailers','TCP/IP vs OSI','Protocol Stack','Opaque Payload','L2 MAC frame','L3 IP packet','L4 TCP segment','Physical bits'] },
+    3: { center: 'IP Addressing & Subnets', nodes: ['IPv4 32-bit','Dotted Decimal','Binary AND','Subnet Mask','CIDR /prefix','Network Address','Broadcast Address','Usable Hosts','Classful A/B/C','Private Ranges','Special IPs','Subnetting'] },
+    4: { center: 'Advanced Subnetting', nodes: ['VLSM','Subnet Borrowing','Route Aggregation','Supernetting','IPv6 Basics','128-bit Address','Hexadecimal','CIDR Notation','Network Planning','IP Hierarchy','Address Exhaustion','NAT Need'] },
+    5: { center: 'Graph Algorithms', nodes: ['Dijkstra','Greedy Freeze','Priority Queue','Shortest Path','Bellman-Ford','Negative Edges','SSSP','Relaxation','Distance Table','Finalized Set','Edge Weights','Graph BFS'] },
+    6: { center: 'Routing Algorithms', nodes: ['Link State','Distance Vector','Convergence','Count-to-Infinity','Split Horizon','Poison Reverse','Triggered Update','Bellman-Ford DV','Flooding','Hierarchy','AS Routing','Path Selection'] },
+    7: { center: 'Internet Routing', nodes: ['Routing Table','Forwarding','RIP v1/v2','OSPF','BGP','IGP vs EGP','TTL & ICMP','Traceroute','Next Hop','Default Route','ECMP','Policy Routing'] },
+    8: { center: 'Advanced Routing & DV', nodes: ['RIP Timers','OSPF LSA','SPF Tree','Area 0 Backbone','BGP Attributes','AS Path','iBGP/eBGP','Route Redistribution','Distance Vector','Count-to-Infinity','Split Horizon','Bellman-Ford'] },
+    9: { center: 'DNS & Application Layer', nodes: ['DNS Hierarchy','Root Servers','.com TLD','Authoritative NS','Recursive Resolver','A/AAAA Records','MX/CNAME/TXT','DNS Cache/TTL','HTTP/1.1 vs HTTP/2','HTTPS & TLS','Cookies','Browser Flow'] },
+    10: { center: 'Transport Layer & TCP', nodes: ['TCP 3-Way Handshake','SYN/SYN-ACK/ACK','Sequence Numbers','ACK Numbers','Flow Control','Congestion Control','TCP Termination','UDP Unreliable','Ports','Sockets','Multiplexing','Sliding Window'] },
+    11: { center: 'NAT, DHCP & ARP', nodes: ['NAT Table','Port Translation','DORA (DHCP)','IP Lease','ARP Request/Reply','MAC to IP','ARP Cache','Private IP','PAT','APIPA 169.254','Broadcast','DHCP Server'] },
+    12: { center: 'Network Tools & Security', nodes: ['ping','traceroute','nslookup','Wireshark','netstat','ipconfig','iptables','Firewall','IDS/IPS','VPN','SSL/TLS','Common Attacks'] },
+    13: { center: 'Complete Packet Journey', nodes: ['Browser Enter','DNS Resolution','Root→TLD→Auth','TCP Handshake','HTTP GET','HTTP 200 OK','IP Routing','MAC Rewrite','TTL Decrement','TCP Reassembly','HTML Render','Keep-Alive'] },
+    0: { center: 'All 13 Lectures', nodes: ['Networks Basics','OSI / TCP-IP','IP & Subnets','Routing Algos','Internet Routing','DNS & HTTP','TCP & UDP','NAT & DHCP','ARP & Tools','Packet Journey','Exam Prep','Mindmap Overview'] },
+  };
+  function mindMapHtml(num, acc) {
+    const mm = LECTURE_MINDMAPS[num];
+    if (!mm) return '';
+    const nodes = mm.nodes.map(n => `<span class="mm-node">${esc(n)}</span>`).join('');
+    return `<div class="mindmap-wrap">
+      <h3>🗺️ Concept Overview</h3>
+      <div class="mindmap-nodes">
+        <div class="mm-center" style="background:${acc||'var(--acc)'}">${esc(mm.center)}</div>
+        ${mm.nodes.map(n => `<div class="mm-spoke"><span class="mm-node">${esc(n)}</span></div>`).join('')}
+      </div>
+    </div>`;
+  }
+
   function lectureView(num) {
     const lec = LECTURES.find(l => l.num === num);
     if (!lec) { view().innerHTML = '<p>Lecture not found.</p>'; return; }
@@ -573,16 +603,20 @@
         ${!isRead(num) ? `<button class="btn primary small" id="markRead">✓ Mark as read</button>` : ''}
       </div>
       <div class="lroot" style="--acc:${lec.acc.acc};--acc-d:${lec.acc.d};--acc-l:${lec.acc.l};--acc-m:${lec.acc.m}">
+        ${mindMapHtml(num, lec.acc.acc)}
         ${objHtml}
         ${secs}
         ${cheat}
-        <div class="sec"><div class="sec-head"><div class="num">✎</div><h2>Test yourself</h2><div class="rule"></div></div>
-          <div class="qc-head"><span class="lab-status">⚡ Quick check — ${Math.min(3, mcqH.length)} questions · ~2 min</span><span class="small">Start here — small wins first.</span></div>
-          ${quick}
-          ${rest ? `<div class="qc-actions"><button class="btn ghost small" id="qcMore">📚 Show all ${lec.questions.length} questions</button></div>
-          <div id="qcRest" style="display:none">${rest}</div>` : ''}
-          <p class="small" style="margin-top:10px">Prefer a full scored run? Open the <a href="#/quiz/${num}">quiz view</a>.</p>
-        </div>
+        <details class="lec-details" id="testYourselfSection">
+          <summary><span style="font-size:18px">✎</span> Test Yourself <span class="ds-badge">${lec.questions.length} Qs</span><span class="ds-arrow">▶</span></summary>
+          <div class="lec-details-body">
+            <div class="qc-head"><span class="lab-status">⚡ Quick check — ${Math.min(3, mcqH.length)} questions · ~2 min</span><span class="small">Start here — small wins first.</span></div>
+            ${quick}
+            ${rest ? `<div class="qc-actions"><button class="btn ghost small" id="qcMore">📚 Show all ${lec.questions.length} questions</button></div>
+            <div id="qcRest" style="display:none">${rest}</div>` : ''}
+            <p class="small" style="margin-top:10px">Prefer a full scored run? Open the <a href="#/quiz/${num}">quiz view</a>.</p>
+          </div>
+        </details>
       </div>
       <div class="lec-nav">
         ${prev ? `<a class="btn ghost small" href="#/lecture/${prev.num}">← ${prev.num === 0 ? 'Master Book' : 'Lecture ' + prev.num}</a>` : '<span></span>'}
@@ -679,8 +713,103 @@
       });
     });
     $$('.reveal-btn', view()).forEach(b => {
-      b.onclick = () => { b.nextElementSibling.classList.toggle('show'); b.textContent = b.textContent.includes('Show') ? 'Hide answer' : 'Show a model answer'; };
+      b.onclick = () => {
+        const ans = b.nextElementSibling;
+        const showing = ans.classList.toggle('show');
+        b.textContent = showing ? '⯁ Hide answer' : '▶ Show model answer';
+        b.style.background = showing ? 'var(--acc)' : '';
+        b.style.color = showing ? '#fff' : '';
+      };
     });
+    enhanceLectureCodePairs();
+    // Code language switcher: find remaining pre/code blocks and add copy controls
+    $$('.sec pre, .sec code, .sec .code', view()).forEach(codeEl => {
+      if (codeEl.closest('.lecture-code-switch')) return;
+      const txt = codeEl.textContent || '';
+      const hasJava = /public\s+class|System\.out|import java/i.test(txt);
+      const hasCpp  = /#include|cout|int main|std::/i.test(txt);
+      if ((hasJava || hasCpp) && codeEl.parentElement && !codeEl.parentElement.classList.contains('code-block-wrap')) {
+        const wrapper = document.createElement('div');
+        wrapper.className = 'code-block-wrap';
+        const hdr = document.createElement('div');
+        hdr.className = 'code-block-header';
+        const langTag = document.createElement('span');
+        langTag.className = 'lang-tag';
+        langTag.textContent = hasJava && hasCpp ? 'Java / C++' : (hasJava ? 'Java' : 'C++');
+        const copyBtn = document.createElement('button');
+        copyBtn.className = 'copy-btn';
+        copyBtn.textContent = 'Copy';
+        copyBtn.onclick = () => { navigator.clipboard && navigator.clipboard.writeText(codeEl.textContent); copyBtn.textContent = 'Copied!'; setTimeout(() => copyBtn.textContent = 'Copy', 1500); };
+        hdr.appendChild(langTag); hdr.appendChild(copyBtn);
+        codeEl.parentElement.insertBefore(wrapper, codeEl);
+        wrapper.appendChild(hdr); wrapper.appendChild(codeEl);
+        codeEl.classList.add('code-styled');
+        if (!codeEl.tagName.match(/PRE/i)) {
+          const pre = document.createElement('pre');
+          pre.className = 'code-styled';
+          wrapper.replaceChild(pre, codeEl);
+          pre.appendChild(codeEl);
+        }
+      }
+    });
+  }
+
+  function enhanceLectureCodePairs() {
+    const heads = $$('.lroot .code-head', view());
+    heads.forEach(head => {
+      if (!head.isConnected || head.dataset.langMerged) return;
+      const code = nextElement(head, '.code');
+      const nextHead = code && nextElement(code, '.code-head');
+      const nextCode = nextHead && nextElement(nextHead, '.code');
+      if (!code || !nextHead || !nextCode) return;
+      const h1 = head.querySelector('span:first-child');
+      const h2 = nextHead.querySelector('span:first-child');
+      const l1 = (head.querySelector('span:last-child') || {}).textContent || '';
+      const l2 = (nextHead.querySelector('span:last-child') || {}).textContent || '';
+      const sameTopic = h1 && h2 && h1.textContent.trim().toLowerCase() === h2.textContent.trim().toLowerCase();
+      const javaCpp = /java/i.test(l1) && /c\+\+/i.test(l2);
+      if (!sameTopic || !javaCpp) return;
+
+      const card = document.createElement('div');
+      card.className = 'lecture-code-switch';
+      card.innerHTML = `
+        <div class="lecture-code-top">
+          <div>
+            <div class="lecture-code-kicker">Code walkthrough</div>
+            <div class="lecture-code-title">${esc(h1.textContent.trim())}</div>
+          </div>
+          <div class="lang-switcher" role="tablist">
+            <button class="lang-btn active" data-lang="java" type="button">Java</button>
+            <button class="lang-btn" data-lang="cpp" type="button">C++</button>
+          </div>
+        </div>
+        <div class="lecture-code-hint">Read the idea first, then switch languages. The algorithm is the same; only containers and syntax change.</div>`;
+      const javaPanel = document.createElement('div');
+      javaPanel.className = 'code code-panel active';
+      javaPanel.setAttribute('data-lang', 'java');
+      javaPanel.innerHTML = code.innerHTML;
+      const cppPanel = document.createElement('div');
+      cppPanel.className = 'code code-panel';
+      cppPanel.setAttribute('data-lang', 'cpp');
+      cppPanel.innerHTML = nextCode.innerHTML;
+      card.appendChild(javaPanel);
+      card.appendChild(cppPanel);
+
+      head.parentElement.insertBefore(card, head);
+      [head, code, nextHead, nextCode].forEach(el => el.remove());
+      $$('.lang-btn', card).forEach(btn => {
+        btn.onclick = () => {
+          $$('.lang-btn', card).forEach(b => b.classList.toggle('active', b === btn));
+          $$('.code-panel', card).forEach(p => p.classList.toggle('active', p.getAttribute('data-lang') === btn.getAttribute('data-lang')));
+        };
+      });
+    });
+  }
+
+  function nextElement(el, sel) {
+    let n = el.nextElementSibling;
+    while (n && !n.matches(sel)) n = n.nextElementSibling;
+    return n;
   }
 
   /* ---------------- QUIZ ---------------- */
