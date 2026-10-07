@@ -1,0 +1,17 @@
+{
+  "title": "NetMastery — Computer Networks, Mastered",
+  "target_runtime": "~115s",
+  "scenes": [
+    {"id": 1, "visual": "title-card.png", "mode": "card", "host": "A", "narration": "What if learning Computer Networks felt like playing your favourite game?"},
+    {"id": 2, "visual": "R1-home-scroll.webm", "mode": "screen", "host": "A", "narration": "This is NetMastery — an entire Computer Networks course rebuilt as an adventure. Thirteen lectures. Seven zones. One final boss. Every lecture you finish earns stars, XP, and keeps your daily streak alive."},
+    {"id": 3, "visual": "R1-home-scroll.webm", "mode": "screen", "host": "B", "narration": "And every day begins with five fresh questions, picked from across the whole course. Small wins — every single day."},
+    {"id": 4, "visual": "R2-lecture.webm", "mode": "screen", "host": "B", "narration": "Each lecture opens with a two-minute quick check. Three questions, instant feedback — and the full set folds away until you're ready for it."},
+    {"id": 5, "visual": "R3-embed.webm", "mode": "screen", "host": "A", "narration": "Concepts come alive inside the reading. Predict the answer first — then watch the DNS hierarchy climb, right where you're learning."},
+    {"id": 6, "visual": "R4-osi.webm", "mode": "screen", "host": "B", "narration": "The OSI stack in true 3D. Drag it, spin it — and watch your data gain headers, layer by layer."},
+    {"id": 7, "visual": "R5-gossip.webm", "mode": "screen", "host": "A", "narration": "Even count-to-infinity — the most feared routing problem — becomes something you can watch, break, and fix with split horizon."},
+    {"id": 8, "visual": "R6-assign.webm", "mode": "screen", "host": "B", "narration": "Every exam question from the course is here — all ninety-seven — with the answer key fully explained. And every coding problem solved in Java and C-plus-plus, with step-by-step visualisers."},
+    {"id": 9, "visual": "R7-arcade.webm", "mode": "screen", "host": "A", "narration": "Six arcade games turn subnetting, ports and headers into pure play."},
+    {"id": 10, "visual": "R7-arcade.webm", "mode": "screen", "host": "B", "narration": "It all leads to the final boss — a seventy-mark mock exam with its own health bar. Beat it, and the crown is yours."},
+    {"id": 11, "visual": "end-card.png", "mode": "card", "host": "AB", "narration": "NetMastery. Built for the exam. Designed to be loved. Star it on GitHub — and start your journey today."}
+  ]
+}
