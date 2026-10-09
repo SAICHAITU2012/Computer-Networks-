@@ -5,14 +5,28 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NetMastery — Computer Networks Interactive Learning</title>
 <meta name="description" content="Master Computer Networks through gamified interactive lectures, labs, quizzes and mini-games. Covers OSI model, subnetting, routing, DNS, TCP/UDP and more.">
+<meta property="og:title" content="NetMastery — Computer Networks Interactive Learning">
+<meta property="og:description" content="Gamified interactive lectures, labs, quizzes and mini-games for Computer Networks — OSI, subnetting, routing, DNS, TCP/UDP.">
+<meta property="og:type" content="website">
+<meta name="theme-color" content="#080b14">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%234f46e5'/%3E%3Ctext x='32' y='42' font-family='Arial,sans-serif' font-size='30' font-weight='bold' fill='white' text-anchor='middle'%3ECN%3C/text%3E%3C/svg%3E">
+<script>
+// apply saved theme before first paint — prevents the dark/light flash
+(function(){try{
+  var t=localStorage.getItem('cn_theme');
+  if(!t) t=(window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)').matches)?'light':'dark';
+  document.documentElement.setAttribute('data-theme',t);
+}catch(e){}})();
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/site.css?v=28">
+<link rel="stylesheet" href="assets/site.css?v=29">
 </head>
 <body>
 
-<button class="nav-toggle" id="navToggle" aria-label="Menu">☰</button>
+<button class="nav-toggle" id="navToggle" aria-label="Menu" aria-controls="sidebar" aria-expanded="false">☰</button>
+<noscript><div style="padding:20px;font-family:sans-serif;background:#080b14;color:#eef0f8;min-height:100vh;display:grid;place-items:center"><p>This site is an interactive app and needs JavaScript. Please enable JavaScript to use NetMastery.</p></div></noscript>
 
 <nav class="sidebar" id="sidebar">
   <div class="logo">
@@ -39,13 +53,13 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="assets/bg3d.js?v=28"></script>
-<script src="assets/game.js?v=28"></script>
-<script src="assets/labs.js?v=28"></script>
-<script src="assets/arcade.js?v=28"></script>
-<script src="assets/assignment.js?v=28"></script>
-<script src="assets/assignview.js?v=28"></script>
-<script src="assets/app.js?v=28"></script>
+<script src="assets/bg3d.js?v=29"></script>
+<script src="assets/game.js?v=29"></script>
+<script src="assets/labs.js?v=29"></script>
+<script src="assets/arcade.js?v=29"></script>
+<script src="assets/assignment.js?v=29"></script>
+<script src="assets/assignview.js?v=29"></script>
+<script src="assets/app.js?v=29"></script>
 
 <script>
 // Theme toggle — persisted in localStorage

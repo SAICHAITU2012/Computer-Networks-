@@ -3,8 +3,6 @@
    Complete redesign v10 — Gamified, Vibrant, Dark/Light Mode
    ============================================================ */
 
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600;700&display=swap');
-
 /* ============================================================
    DESIGN TOKENS — DARK MODE (default)
    ============================================================ */
@@ -22,8 +20,8 @@
   --border-3:  rgba(255,255,255,0.18);
   --ink:   #eef0f8;
   --ink-2: #b0b8d4;
-  --ink-3: #6b7494;
-  --ink-4: #3f4866;
+  --ink-3: #8a93b5;
+  --ink-4: #566080;
   --acc:    #6366f1;
   --acc-d:  #4338ca;
   --acc-l:  rgba(99,102,241,0.12);
@@ -63,7 +61,7 @@
   --card: #ffffff; --card-2: #f8f9ff;
   --glass: rgba(255,255,255,0.85); --glass-2: rgba(240,242,255,0.8);
   --border: rgba(99,102,241,0.1); --border-2: rgba(99,102,241,0.16); --border-3: rgba(99,102,241,0.22);
-  --ink: #1a1f3a; --ink-2: #3d4468; --ink-3: #7b82a8; --ink-4: #adb5cc;
+  --ink: #1a1f3a; --ink-2: #3d4468; --ink-3: #5a6286; --ink-4: #6d7594;
   --acc-l: rgba(99,102,241,0.08); --acc-m: rgba(99,102,241,0.2); --acc-glow: rgba(99,102,241,0.3);
   --ok-bg: rgba(16,185,129,0.08); --ok-bd: rgba(16,185,129,0.25); --ok-tx: #059669;
   --warn-bg:rgba(245,158,11,0.08); --warn-bd:rgba(245,158,11,0.25); --warn-tx: #d97706;
@@ -1595,7 +1593,8 @@ a:hover { color: var(--ink); }
 .search-hint { padding: 8px 18px; font-size: 11.5px; color: var(--ink-3); }
 
 @media (prefers-reduced-motion: reduce) {
-  .view, .xp-toast, .big-toast, .pax-body, .lec-card, .lab-card { animation: none !important; transition: none !important; }
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+  html { scroll-behavior: auto !important; }
 }
 
 /* ============================================================
@@ -1880,3 +1879,9 @@ pre.code-styled .nu  { color: #f2cc60; }   /* numbers */
   color: #fff; font-size: 11px;
   animation: fadeIn .3s ease;
 }
+
+/* ============================================================
+   v29 — ACCESSIBILITY FLOOR
+   ============================================================ */
+:focus-visible { outline: 2px solid var(--acc); outline-offset: 2px; border-radius: 4px; }
+.btn:focus-visible, .opt:focus-visible, .nav-item:focus-visible { outline: 3px solid var(--acc); outline-offset: 2px; }

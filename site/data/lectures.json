@@ -266,7 +266,7 @@
     "text": "d_trans = 8000/10⁸ = 0.08 ms; d_prop = 2×10⁵/2×10⁸ = 1 ms; d_nodal ≈ 0 + 3 + 0.08 + 1 = 4.08 ms."
    },
    {
-    "key": "A12, A15.",
+    "key": "A12/A15.",
     "text": "Structure your answer with Figures 4 and 3: definitions → diagram → 3–4 contrast points → example/numeric. Graders award labelled diagrams."
    }
   ]
@@ -1811,7 +1811,7 @@
     "text": "BGP prevents loops using:",
     "opts": [
      "a) TTL",
-     "b>split horizon",
+     "b) split horizon",
      "c) AS_PATH containing own ASN → discard",
      "d) Dijkstra"
     ]
@@ -1928,6 +1928,14 @@
    {
     "key": "A10.",
     "text": "All routers agree on tables. OSPF (1–10 s, triggered flooding) > RIP (30 s–minutes, timers) — BGP slowest by design (policy, scale)."
+   },
+   {
+    "key": "A11.",
+    "text": "Draw A—B—C with cost-1 links. Before failure: B reaches C at cost 1, A reaches C via B at cost 2. After B–C fails: B drops its route, but A still advertises 'C, cost 2' — B concludes C is 3 away via A; A then hears B's cost-3 and re-raises its own to 4… the count climbs one per exchange toward ∞ (16 in RIP). Four fixes: <b>split horizon</b> (never advertise a route back the interface it came from), <b>poison reverse</b> (advertise it back at ∞ explicitly), <b>triggered updates</b> (flush the change immediately, don't wait for the periodic timer), and <b>hold-down timers</b> (ignore worse routes for ~60 s so stale adverts die)."
+   },
+   {
+    "key": "A12.",
+    "text": "Hello protocol (multicast 224.0.0.5) discovers neighbours and elects DR/BDR on broadcast links → each router floods <b>LSAs</b> describing its links and costs; every router in an area ends with an identical <b>LSDB</b> → each runs Dijkstra <b>SPF</b> locally and installs the shortest-path tree. Cost = reference BW ÷ interface BW (10⁸/bw): 10 Mbps → 10, 100 Mbps → 1, 1 Gbps → 1 unless the reference bandwidth is raised. <b>Areas</b> exist to bound LSA flooding and SPF size: Area 0 is the backbone, ABRs carry summarised inter-area routes."
    },
    {
     "key": "A13.",
@@ -2186,7 +2194,7 @@
     "text": "MX for mail routing; TXT for ownership/SPF/DKIM proofs."
    },
    {
-    "key": "A12–A15.",
+    "key": "A12/A13/A14/A15.",
     "text": "Reproduce the 9-step timeline, Figure 1, the request/response code blocks, and the cookie flow — annotated diagrams earn the marks."
    }
   ]
@@ -2307,7 +2315,7 @@
      "a) socket()",
      "b) bind()",
      "c) listen()/accept()",
-     "d> sendto()"
+     "d) sendto()"
     ]
    },
    {
@@ -2430,6 +2438,10 @@
    {
     "key": "A12.",
     "text": "Peer sent FIN (closed cleanly) — close your socket / stop reading."
+   },
+   {
+    "key": "A13.",
+    "text": "Client SYN seq=x → server SYN-ACK seq=y, ack=x+1 → client ACK ack=y+1 (ESTABLISHED). Close: FIN → ACK, then the server's own FIN → ACK; the client holds <b>TIME_WAIT for 2×MSL</b> so a lost final ACK can be re-sent and old duplicate segments die out. Annotate every arrow with seq/ack values — that's where the marks are."
    },
    {
     "key": "A14/A15.",
@@ -2666,7 +2678,7 @@
     "text": "Router + DHCP server + DNS forwarder + L2 switch + Wi-Fi AP (+ firewall)."
    },
    {
-    "key": "A12–A15.",
+    "key": "A12/A13/A14/A15.",
     "text": "Reproduce Figures 1–2, the state table, and the §5 journey table — annotate every header change for full marks."
    }
   ]
@@ -2926,7 +2938,7 @@
     "text": "At hop 4 — the jump appears crossing INTO hop 4 (its incoming link), since hop 3 responded quickly."
    },
    {
-    "key": "A13–A16.",
+    "key": "A13/A14/A15/A16.",
     "text": "Ladder + checklist, state stories from §5, the four commands from §6, and PMTUD: blocked \"Fragmentation Needed\" ICMP = sender never learns to shrink packets."
    }
   ]
@@ -3179,7 +3191,7 @@
     "text": "keep-alive reuses the established connection; HTTP/2 multiplexes many streams over it."
    },
    {
-    "key": "A12–A15.",
+    "key": "A12/A13/A14/A15.",
     "text": "The lecture IS the answer key — reproduce the phase diagram + mapping table + timeline with the optimisation column."
    }
   ]
@@ -3357,79 +3369,79 @@
    },
    {
     "no": "11",
-    "tag": "3m",
+    "tag": "Short",
     "text": "Encapsulate \"the packet leaves my laptop\" — name the data unit and addressing at L4, L3, L2.",
     "opts": []
    },
    {
     "no": "12",
-    "tag": "3m",
+    "tag": "Short",
     "text": "Differentiate circuit and packet switching (four points) and say why the Internet chose packets.",
     "opts": []
    },
    {
     "no": "13",
-    "tag": "3m",
+    "tag": "Short",
     "text": "Why do MAC addresses change at every hop while IP addresses don't (until NAT)?",
     "opts": []
    },
    {
     "no": "14",
-    "tag": "3m",
+    "tag": "Short",
     "text": "State split horizon and poison reverse; why do they cure count-to-infinity?",
     "opts": []
    },
    {
     "no": "15",
-    "tag": "3m",
+    "tag": "Short",
     "text": "Idempotent vs safe methods — classify GET, POST, PUT, DELETE.",
     "opts": []
    },
    {
     "no": "16",
-    "tag": "3m",
+    "tag": "Short",
     "text": "Explain the NAT state table's role for three devices sharing one public IP.",
     "opts": []
    },
    {
     "no": "17",
-    "tag": "7m",
+    "tag": "Long",
     "text": "Compute: 1500-B packet over 3 store-and-forward links — 10 Mbps/600 km, 1 Mbps/30 km, 10 Mbps/1200 km, s = 2×10⁸ m/s. Per-link d_trans, d_prop, total one-way delay.",
     "opts": []
    },
    {
     "no": "18",
-    "tag": "7m",
+    "tag": "Long",
     "text": "VLSM-allocate 192.168.20.0/24: Sales 100, Tech 50, Admin 20, Guest 10, WAN 2. Ranges + broadcasts, largest first.",
     "opts": []
    },
    {
     "no": "19",
-    "tag": "7m",
+    "tag": "Long",
     "text": "Trace Dijkstra from Delhi on the 5-city graph (Lecture 5): expansion order, final costs, path to Chennai.",
     "opts": []
    },
    {
     "no": "20",
-    "tag": "7m",
+    "tag": "Long",
     "text": "Count-to-infinity: diagram, the numbers after B–C fails, all four cures.",
     "opts": []
    },
    {
     "no": "21",
-    "tag": "7m",
+    "tag": "Long",
     "text": "DNS resolution for www.google.com — every cache, server and referral, recursive vs iterative.",
     "opts": []
    },
    {
     "no": "22",
-    "tag": "7m",
+    "tag": "Long",
     "text": "Three-way handshake + four-way close with seq/ack numbers; why TIME_WAIT?",
     "opts": []
    },
    {
     "no": "23",
-    "tag": "7m",
+    "tag": "Long",
     "text": "The complete HTTPS journey (9 phases) with one protocol + one OSI layer per phase.",
     "opts": []
    }

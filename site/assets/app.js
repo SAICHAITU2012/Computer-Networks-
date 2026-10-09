@@ -57,9 +57,11 @@
   function answerMap(lec) {
     const map = {};
     (lec.answers || []).forEach(a => {
-      const key = a.key.replace(/^A/i, '').trim();
+      // key forms: "A12." · "A12/A14/A15." · "A12–A15." · "A12, A15." — strip every A,
+      // then parse ranges, slashes and comma lists uniformly
+      const key = String(a.key).replace(/A/gi, '').trim();
       const nums = [];
-      key.split('/').forEach(part => {
+      key.split(/[\/,]/).forEach(part => {
         const rng = part.match(/(\d+)\s*[–-]\s*(\d+)/);
         if (rng) { for (let i = +rng[1]; i <= +rng[2]; i++) nums.push(i); }
         else { const n = part.match(/\d+/); if (n) nums.push(+n[0]); }
@@ -1155,8 +1157,10 @@
   function route() {
     const h = location.hash || '#/';
     $('#sidebar').classList.remove('open');
+    $('#navToggle').setAttribute('aria-expanded', 'false');
     const view0 = $('#view');
     // teardown running sims & backgrounds
+    window.dispatchEvent(new Event('route:away'));
     if (meshStop) { meshStop(); meshStop = null; }
     if (window.BG3D) window.BG3D.stop();
     if (window.CN_LABS) window.CN_LABS.forEach(l => l.teardown && l.teardown());
@@ -1209,7 +1213,10 @@ python3 -m http.server 8765</div>
     LECTURES.sort((a, b) => (a.num === 0 ? 99 : a.num) - (b.num === 0 ? 99 : b.num));
     buildNav();
     window.addEventListener('hashchange', route);
-    $('#navToggle').onclick = () => $('#sidebar').classList.toggle('open');
+    $('#navToggle').onclick = () => {
+      const open = $('#sidebar').classList.toggle('open');
+      $('#navToggle').setAttribute('aria-expanded', open);
+    };
     buildSearchIndex();
     if (window.CN_GAME) window.CN_GAME.onXP(() => {
       const pct = overallPct();
