@@ -470,8 +470,9 @@
         <button class="btn ghost small" id="rPlay">▶ Play</button>
         <button class="btn ghost small" id="rReset">Reset</button>`);
       const two = el('div', 'lab-two');
+      two.style.gridTemplateColumns = '1fr 340px';
       const svgWrap = el('div');
-      const side = el('div', 'lab-side', `<h4>Distance table</h4><div id="rTable"></div><div id="rExplain" style="margin-top:8px;color:var(--ink-2);font-size:12.6px">Press <b>Step</b> to begin.</div>`);
+      const side = el('div', 'lab-side', `<h4>Distance table</h4><div id="rTable"></div><div id="rExplain" style="margin-top:8px;color:var(--ink-2);font-size:13.2px;line-height:1.55">Press <b>Step</b> to begin.</div>`);
       two.appendChild(svgWrap); two.appendChild(side);
       shell.appendChild(two);
 
@@ -488,7 +489,7 @@
         ['Pune', 'Bengaluru', 6], ['Hyderabad', 'Bengaluru', 4], ['Hyderabad', 'Chennai', 5],
         ['Bengaluru', 'Chennai', 3],
       ];
-      const svg = svgEl('svg', { viewBox: '0 0 700 500', class: 'lab-canvas' });
+      const svg = svgEl('svg', { viewBox: '30 15 640 480', class: 'lab-canvas' });
       svgWrap.appendChild(svg);
       const nodeEls = {}, edgeEls = {};
       edges.forEach(([a, b, w]) => {
@@ -511,8 +512,8 @@
           e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId);
           const move = ev => {
             const r = svg.getBoundingClientRect();
-            n.x = Math.max(30, Math.min(670, (ev.clientX - r.left) / r.width * 700));
-            n.y = Math.max(30, Math.min(470, (ev.clientY - r.top) / r.height * 500));
+            n.x = Math.max(56, Math.min(646, 30 + (ev.clientX - r.left) / r.width * 640));
+            n.y = Math.max(52, Math.min(440, 15 + (ev.clientY - r.top) / r.height * 480));
             pos(); redrawEdges();
           };
           const up = () => { svg.removeEventListener('pointermove', move); svg.removeEventListener('pointerup', up); };
@@ -616,20 +617,22 @@
           push(`Start: dist[${src}] = 0, everything else ∞. Bellman-Ford relaxes <b>every edge</b>, pass after pass — this is what a distance-vector protocol does between its neighbours. Nothing is finalised greedily: any router's distance keeps improving while a later pass finds a cheaper route, so <b>no fixed visit order</b> exists.`);
           const orderN = nodes.map(n => n.id);
           const lastPass = { [src]: 0 };
+          let passesRun = 0;
           for (let pass = 1; pass <= nodes.length - 1; pass++) {
-            let improved = false;
+            const wouldImprove = orderN.some(u => nbrs(u).some(([v, w]) => isFinite(dist[u]) && dist[u] + w < dist[v]));
+            if (!wouldImprove) break;
+            passesRun = pass;
             orderN.forEach(u => {
               nbrs(u).forEach(([v, w]) => {
                 const old = dist[v];
-                if (isFinite(dist[u]) && dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; improved = true; lastPass[v] = pass; }
+                if (isFinite(dist[u]) && dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; lastPass[v] = pass; }
                 push(`Pass ${pass}: relax ${u} → ${v}: ${fmt(dist[u])} + ${w} = ${isFinite(dist[u]) ? fmt(dist[u] + w) : '∞'} vs current ${fmt(old)}` +
                   (dist[v] < old ? ` — <b>improve → ${fmt(dist[v])}</b>.` : ' — no improvement.'));
               });
             });
-            if (!improved) break;
           }
           nodes.forEach(n => { if (isFinite(dist[n.id])) { visited[n.id] = 'final'; order[n.id] = lastPass[n.id]; } });
-          push(`Converged: with all <b>V−1 passes</b> done, nothing changes any more — every reachable router's distance is now final <i>by convergence</i>, not by greedy choice (there is no visit order to get right or wrong). The <b>Pass</b> column shows the pass in which each distance last improved. One further no-change pass would also rule out a negative-weight cycle reachable from ${src}; this graph has none. <b>Count-to-infinity</b> is the classic distance-vector failure: when a link fails or its cost rises, stale route adverts keep circulating between neighbours, hop counts climb toward ∞ before the tables re-settle.`);
+          push(`Converged: <b>${passesRun} complete pass${passesRun === 1 ? '' : 'es'}</b> over every edge were enough (Bellman-Ford allows up to V−1 = ${nodes.length - 1}; we stop early once a pass changes nothing). Every reachable router's distance is final <i>by convergence</i>, not by greedy choice — there is no visit order to get right or wrong. The <b>Pass</b> column shows the pass in which each distance last improved with this edge-relaxation order (a different edge order can shift which pass a router converges in, never the final distances). One further no-change pass would also rule out a negative-weight cycle reachable from ${src}; this graph has none. <b>Count-to-infinity</b> is the classic distance-vector failure: when a link fails or its cost rises, stale route adverts keep circulating between neighbours, hop counts climb toward ∞ before the tables re-settle.`);
         }
       }
       function render() {
