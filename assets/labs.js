@@ -533,76 +533,101 @@
 
       const desc = $('#rExplain', side);
       let algo = [], dist = {}, prev = {}, visited = {}, order = {}, stepIdx = 0, src = 'Delhi', dst = 'Bengaluru';
+      let initial = null;
+      const fmt = d => d === Infinity ? '∞' : d;
+      const getPath = t => {
+        const p = []; let cur = t;
+        while (cur !== undefined && p.length <= nodes.length) { p.unshift(cur); cur = prev[cur]; }
+        return p[0] === src ? p : null;
+      };
 
+      // The algorithm is fully computed here, and every step captures a snapshot
+      // of dist/prev/visited/order at that moment — stepping replays the snapshots.
       function buildPlan() {
         algo = []; dist = {}; prev = {}; visited = {}; order = {};
         nodes.forEach(n => dist[n.id] = Infinity);
         dist[src] = 0;
+        const push = d => algo.push({ dist: { ...dist }, prev: { ...prev }, visited: { ...visited }, order: { ...order }, desc: d });
+        initial = { dist: { ...dist }, prev: {}, visited: {}, order: {}, desc: 'Press <b>Step</b> to begin.' };
         const kind = $('#rAlg', shell).value;
         if (kind === 'dijkstra') {
-          const vis = new Set();
-          algo.push(() => { desc.innerHTML = `Start: dist[${src}] = 0, everything else ∞.`; });
-          while (vis.size < nodes.length) {
+          push(`Start: dist[${src}] = 0, everything else ∞. Dijkstra will repeatedly finalise the closest unfinalised router and relax its edges.`);
+          const done = new Set();
+          while (true) {
             let u = null, best = Infinity;
-            nodes.forEach(n => { if (!vis.has(n.id) && dist[n.id] < best) { best = dist[n.id]; u = n.id; } });
-            if (u === null || u === dst && false) break;
-            const snapshot = { u, relax: [] };
-            algo.push(() => {
-              visited[u] = 'final'; order[u] = Object.keys(order).length + 1;
-              desc.innerHTML = `<b>Finalise ${u}</b> (dist ${dist[u]}) — Dijkstra greedily picks the closest unfinalised router. It will never revisit it.`;
-            });
+            nodes.forEach(n => { if (!done.has(n.id) && dist[n.id] < best) { best = dist[n.id]; u = n.id; } });
+            if (u === null) break;
+            done.add(u);
+            visited[u] = 'final'; order[u] = Object.keys(order).length + 1;
+            push(`<b>Finalise ${u}</b> (dist ${fmt(dist[u])}) — Dijkstra greedily picks the closest unfinalised router. It will never revisit it.`);
             nbrs(u).forEach(([v, w]) => {
-              if (vis.has(v)) return;
-              algo.push(() => {
-                desc.innerHTML = `Relax ${u} → ${v}: ${dist[u]} + ${w} = ${dist[u] + w} vs current ${dist[v] === Infinity ? '∞' : dist[v]}.`;
-                if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; desc.innerHTML += ` <b>Improve → ${dist[v]}</b>`; }
-                else desc.innerHTML += ' — no improvement.';
-              });
+              if (done.has(v)) return;
+              const old = dist[v];
+              if (isFinite(dist[u]) && dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; }
+              push(`Relax ${u} → ${v}: ${fmt(dist[u])} + ${w} = ${isFinite(dist[u]) ? fmt(dist[u] + w) : '∞'} vs current ${fmt(old)}` +
+                (dist[v] < old ? ` — <b>improve → ${fmt(dist[v])}</b>.` : ' — no improvement.'));
             });
-            vis.add(u);
           }
-          algo.push(() => {
-            const path = []; let cur = dst;
-            while (cur !== undefined) { path.unshift(cur); cur = prev[cur]; }
-            desc.innerHTML = path[0] === src
-              ? `✅ Shortest path <b>${path.join(' → ')}</b> = <b>${dist[dst]}</b>. Total cost is what routing protocols minimise.`
-              : `${dst} unreachable from ${src}.`;
-          });
+          const path = getPath(dst);
+          push(path && path.length > 1
+            ? `✅ Shortest path <b>${path.join(' → ')}</b> = <b>${fmt(dist[dst])}</b>. Total cost is what routing protocols minimise.`
+            : `${dst} unreachable from ${src}.`);
         } else if (kind === 'bfs' || kind === 'dfs') {
-          const orderArr = []; const seen = new Set([src]);
           if (kind === 'bfs') {
+            const seen = new Set([src]);
             const q = [src];
+            const soFar = [];
             while (q.length) {
-              const u = q.shift(); orderArr.push(u);
-              nbrs(u).forEach(([v]) => { if (!seen.has(v)) { seen.add(v); q.push(v); algo.push(() => { desc.innerHTML = `BFS discovers <b>${v}</b> from ${u} — everything one hop away is found before anything two hops away.`; }); } });
+              const u = q.shift();
+              visited[u] = 'final'; order[u] = Object.keys(order).length + 1; soFar.push(u);
+              push(`<b>${u}</b> dequeued and finalised (#${order[u]}). Order so far: ${soFar.join(' → ')}.`);
+              nbrs(u).forEach(([v]) => {
+                if (!seen.has(v)) {
+                  seen.add(v); q.push(v);
+                  dist[v] = dist[u] + 1; prev[v] = u; visited[v] = 'frontier';
+                  push(`BFS discovers <b>${v}</b> from ${u} — dist ${dist[v]} hop${dist[v] === 1 ? '' : 's'}. Everything one hop away is found before anything two hops away.`);
+                }
+              });
             }
+            const path = getPath(dst);
+            push(path && path.length > 1
+              ? `✅ Fewest-hop path <b>${path.join(' → ')}</b> = <b>${dist[dst]} hop${dist[dst] === 1 ? '' : 's'}</b>. BFS finds the path with the fewest links, ignoring the weights.`
+              : `${dst} unreachable from ${src}.`);
           } else {
-            const st = [src];
+            const st = [[src, null]];
             while (st.length) {
-              const u = st.pop();
-              if (seen.has(u) && orderArr.includes(u)) continue;
-              seen.add(u); orderArr.push(u);
-              nbrs(u).forEach(([v]) => { if (!seen.has(v)) { algo.push(() => { desc.innerHTML = `DFS dives to <b>${v}</b> from ${u} — depth first, backtrack later.`; }); st.push(v); } });
+              const [u, p] = st.pop();
+              if (order[u]) continue;
+              if (p !== null) {
+                dist[u] = dist[p] + 1; prev[u] = p; visited[u] = 'frontier';
+                push(`DFS dives to <b>${u}</b> from ${p} — depth first, backtrack later.`);
+              }
+              visited[u] = 'final'; order[u] = Object.keys(order).length + 1;
+              push(`<b>${u}</b> visited (#${order[u]}).`);
+              nbrs(u).forEach(([v]) => { if (!order[v]) st.push([v, u]); });
             }
+            const path = getPath(dst);
+            push(path && path.length > 1
+              ? `DFS tree path to <b>${dst}</b>: <b>${path.join(' → ')}</b> = ${dist[dst]} hops. Note this is the <b>dive</b> path, not the shortest one — that's why networks use BFS/Dijkstra, not DFS, for routing.`
+              : `${dst} unreachable from ${src}.`);
           }
-          orderArr.forEach((u, i) => {
-            algo.push(() => { visited[u] = 'final'; order[u] = i + 1; desc.innerHTML = `<b>${u}</b> visited (#${i + 1}). ${kind.toUpperCase()} order so far: ${orderArr.slice(0, i + 1).join(' → ')}.`; });
-          });
         } else { // bellman-ford
+          push(`Start: dist[${src}] = 0, everything else ∞. Bellman-Ford relaxes <b>every edge</b>, pass after pass — this is what a distance-vector protocol does between its neighbours.`);
           const orderN = nodes.map(n => n.id);
           for (let pass = 1; pass <= nodes.length - 1; pass++) {
-            algo.push(() => { desc.innerHTML = `Pass ${pass}: relax <b>every edge once</b> — this is what a distance-vector protocol does between its neighbours.`; });
+            let improved = false;
             orderN.forEach(u => {
               nbrs(u).forEach(([v, w]) => {
-                algo.push(() => {
-                  if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; desc.innerHTML += ` ${u}→${v} improved to ${dist[v]}.`; }
-                });
+                const old = dist[v];
+                if (isFinite(dist[u]) && dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; improved = true; }
+                push(`Pass ${pass}: relax ${u} → ${v}: ${fmt(dist[u])} + ${w} = ${isFinite(dist[u]) ? fmt(dist[u] + w) : '∞'} vs current ${fmt(old)}` +
+                  (dist[v] < old ? ` — <b>improve → ${fmt(dist[v])}</b>.` : ' — no improvement.'));
               });
             });
+            if (!improved) break;
           }
-          algo.push(() => {
-            desc.innerHTML = `After V−1 passes the tables converge. One more pass with no change proves there is no negative cycle — <b>count-to-infinity</b> is what happens in DV when they don't.`;
-          });
+          nodes.forEach(n => { if (isFinite(dist[n.id])) { visited[n.id] = 'final'; order[n.id] = Object.keys(order).length + 1; } });
+          push(`After the passes the tables converge and every reachable router is finalised. One more pass with no change proves there is no negative cycle — <b>count-to-infinity</b> is what happens in DV when they don't.`);
         }
       }
       function render() {
@@ -614,9 +639,9 @@
         });
         edges.forEach(([a, b]) => {
           const E = edgeEls[a + '|' + b];
-          const onPath = visited[a] === 'final' && visited[b] === 'final' && Math.abs((dist[a] ?? 0) - (dist[b] ?? 0)) === E.w;
-          E.line.setAttribute('stroke', onPath ? '#4f46e5' : '#d9d5f0');
-          E.line.setAttribute('stroke-width', onPath ? 4.5 : 2.5);
+          const onTree = isFinite(dist[a]) && isFinite(dist[b]) && (prev[a] === b || prev[b] === a);
+          E.line.setAttribute('stroke', onTree ? '#4f46e5' : '#d9d5f0');
+          E.line.setAttribute('stroke-width', onTree ? 4.5 : 2.5);
         });
         $('#rTable', side).innerHTML = `<table class="rtable"><tr><th>Router</th><th>Dist</th><th>Via</th><th>#</th></tr>` +
           nodes.map(n => `<tr><td>${n.id}</td><td class="mono">${dist[n.id] === Infinity ? '∞' : dist[n.id]}</td><td>${prev[n.id] || '—'}</td><td>${order[n.id] || '—'}</td></tr>`).join('') + '</table>';
@@ -627,12 +652,14 @@
       srcSel.value = src; dstSel.value = dst;
       srcSel.onchange = () => { src = srcSel.value; reset(); };
       dstSel.onchange = () => { dst = dstSel.value; reset(); };
+      $('#rAlg', shell).onchange = reset;
       let playTimer = null;
-      function reset() { buildPlan(); stepIdx = 0; visited = {}; order = {}; nodes.forEach(n => dist[n.id] = Infinity); dist[src] = 0; prev = {}; desc.innerHTML = 'Press <b>Step</b>.'; render(); }
-      $('#rStep', shell).onclick = () => { if (playTimer) { clearInterval(playTimer); playTimer = null; } if (stepIdx < algo.length) { algo[stepIdx++](); render(); } };
+      function apply(s) { dist = { ...s.dist }; prev = { ...s.prev }; visited = { ...s.visited }; order = { ...s.order }; desc.innerHTML = s.desc; render(); }
+      function reset() { buildPlan(); stepIdx = 0; apply(initial); }
+      $('#rStep', shell).onclick = () => { if (playTimer) { clearInterval(playTimer); playTimer = null; } if (stepIdx < algo.length) apply(algo[stepIdx++]); };
       $('#rPlay', shell).onclick = () => {
         if (playTimer) { clearInterval(playTimer); playTimer = null; return; }
-        playTimer = setInterval(() => { if (stepIdx < algo.length) { algo[stepIdx++](); render(); } else { clearInterval(playTimer); playTimer = null; } }, 550);
+        playTimer = setInterval(() => { if (stepIdx < algo.length) apply(algo[stepIdx++]); else { clearInterval(playTimer); playTimer = null; } }, 550);
       };
       $('#rReset', shell).onclick = reset;
       reset();
