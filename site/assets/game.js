@@ -317,7 +317,7 @@
     if (!reason) return;
     const t = document.createElement('div');
     t.className = 'xp-toast';
-    t.innerHTML = `<b>+${amount} XP</b><span>${reason}</span>`;
+    t.innerHTML = `<b>${amount >= 0 ? '+' : ''}${amount} XP</b><span>${reason}</span>`;
     document.body.appendChild(t);
     setTimeout(() => t.classList.add('show'), 30);
     setTimeout(() => { t.classList.remove('show'); setTimeout(() => t.remove(), 500); }, 2300);

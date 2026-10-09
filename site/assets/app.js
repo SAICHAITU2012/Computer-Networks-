@@ -28,6 +28,15 @@
     }
     refreshNav();
   }
+  function unmarkRead(num) {
+    const d = prog(); d.l = d.l || {};
+    if (!d.l[num] || !d.l[num].read) return;
+    d.l[num].read = false; store.set(d);
+    const g = window.CN_GAME;
+    // the read transition granted +20 XP exactly once — take it back on undo
+    if (g) g.addXP(-20, 'Undo: read mark removed');
+    refreshNav();
+  }
   function setBest(num, pct) { const d = prog(); d.l = d.l || {}; d.l[num] = d.l[num] || {}; d.l[num].best = Math.max(d.l[num].best || 0, pct); store.set(d); refreshNav(); }
   function getBest(num) { const d = prog(); return (d.l && d.l[num] && d.l[num].best) || 0; }
   function isRead(num) { const d = prog(); return !!(d.l && d.l[num] && d.l[num].read); }
@@ -600,7 +609,7 @@
         <span class="spacer"></span>
         <a class="btn ghost small" href="#/cheats">📌 Cheat Sheets</a>
         <a class="btn ghost small" href="#/quiz/${num}">✎ Quiz this lecture</a>
-        ${!isRead(num) ? `<button class="btn primary small" id="markRead">✓ Mark as read</button>` : ''}
+        ${!isRead(num) ? `<button class="btn primary small" id="markRead">✓ Mark as read</button>` : `<button class="btn ghost small" id="unmarkRead">↩ Undo</button>`}
       </div>
       <div class="lroot" style="--acc:${lec.acc.acc};--acc-d:${lec.acc.d};--acc-l:${lec.acc.l};--acc-m:${lec.acc.m}">
         ${mindMapHtml(num, lec.acc.acc)}
@@ -674,7 +683,18 @@
       pendingScroll = null;
     }
     const mr = $('#markRead');
-    if (mr) mr.onclick = () => { markRead(num); mr.remove(); $('#readState').textContent = '✓ Marked as read'; toast('Marked as read — nice work!'); };
+    if (mr) mr.onclick = () => {
+      const toolbar = mr.parentNode;
+      markRead(num); mr.remove();
+      $('#readState').textContent = '✓ Marked as read';
+      toast('Marked as read — nice work!');
+      const undo = document.createElement('button');
+      undo.className = 'btn ghost small'; undo.id = 'unmarkRead'; undo.textContent = '↩ Undo';
+      undo.onclick = () => { unmarkRead(num); location.reload(); };
+      toolbar.appendChild(undo);
+    };
+    const ur = $('#unmarkRead');
+    if (ur) ur.onclick = () => { unmarkRead(num); toast('Read mark undone — XP returned'); location.reload(); };
 
     // inline MCQ interactions
     $$('.qq[data-kind="mcq"]', view()).forEach(qq => {
