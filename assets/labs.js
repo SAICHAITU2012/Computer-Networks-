@@ -248,7 +248,7 @@
     id: 'lab-journey', icon: '🛰️', title: 'The Complete Packet Journey',
     desc: 'Type a URL and watch everything happen: DNS resolution climbing root → TLD → authoritative, the TCP three-way handshake, the HTTP request and the response riding back — with every step narrated.',
     mount(shell) {
-      const alive = { v: true }; this._teardown = () => { alive.v = false; svg._dead = true; };
+      const alive = { v: true }; this._teardown = () => { alive.v = false; };
       controlsHTML(shell, `
         <label>URL <input type="text" id="jUrl" value="www.example.com"></label>
         <button class="btn primary small" id="jGo">▶ Send it</button>
@@ -314,19 +314,19 @@
       S('pSeg3','#16a34a','SYN-ACK \u2461',true,1400,'\ud83e\udd1d <b>Step 13 \u2014 SYN-ACK (\u2461/3).</b> Server sends SEQ=y=5000, ACK=x+1=1001. "Got your SYN; here is mine; confirming receipt."');
       S('pSeg2','#16a34a','SYN-ACK',true,1000,'\u23e9 <b>Step 14</b> \u2014 SYN-ACK travels back. Routers forward based on IP dst=192.168.1.5 via routing tables.');
       S('pSeg1','#16a34a','SYN-ACK',true,1200,'\u23e9 <b>Step 15</b> \u2014 SYN-ACK received at laptop. Laptop moves to ESTABLISHED. Sends final ACK (total: 1.5 RTTs).');
-      S('pSeg1','#e2b95d','ACK \u2462',0,1200,'\ud83e\udd1d <b>Step 16 \u2014 ACK (\u2462/3).</b> SEQ=1001, ACK=5001. Both sides ESTABLISHED. Reliable, ordered, full-duplex byte stream ready end-to-end.');
-      S('pSeg2','#e2b95d','ACK',0,1000,'\u23e9 <b>Step 17</b> \u2014 ACK arrives. Server confirms ESTABLISHED. TCP pipe is open \u2014 HTTP data can now flow.');
-      // -- Phase 3: HTTP Request & Response (Steps 18-21) --
-      S('pSeg3','#2c6b46','HTTP GET',0,1400,'\ud83d\udce8 <b>Step 18 \u2014 HTTP GET.</b> Browser sends GET / HTTP/1.1 + Host header. Encapsulated: DATA \u2192 TCP segment \u2192 IP packet \u2192 Ethernet frame \u2192 bits.');
-      S('pSeg3','#e2b95d','200 OK',true,1600,'\ud83d\udce6 <b>Step 19 \u2014 HTTP 200 OK.</b> Server sends HTML + headers. Large pages split into many TCP segments; SEQ numbers keep them ordered for reassembly.');
-      S('pSeg2','#e2b95d','200 OK',true,1200,'\u23e9 <b>Step 20</b> \u2014 Response packets return. Routers read IP dst=192.168.1.5. Ethernet MACs rewritten (src = router egress MAC) at every hop.');
-      S('pSeg1','#e2b95d','\u2713 Done!',true,1200,'\ud83c\udf89 <b>Step 21 \u2014 Page loaded!</b> Browser reassembles TCP segments in SEQ order. HTML parsed \u2192 page renders. CSS/JS/images: new HTTP requests, usually reusing the same TCP connection (Keep-Alive).');
+      S('pSeg1','#e2b95d','ACK \u2462',0,1200,'\ud83e\udd1d <b>Step 16 \u2014 ACK (\u2462/3).</b> SEQ=1001, ACK=5001. Laptop is ESTABLISHED. Sends final ACK (total: 1.5 RTTs).');
+      S('pSeg2','#e2b95d','ACK',0,900,'\u23e9 <b>Step 17</b> \u2014 ACK crosses the ISP. Routers forward by IP dst=93.184.216.34; MACs rewritten every hop, IP untouched.');
+      S('pSeg3','#e2b95d','ACK',true,1200,'\u23e9 <b>Step 18</b> \u2014 ACK arrives at the web server. Server confirms ESTABLISHED. TCP pipe is open \u2014 HTTP data can now flow.');
+      // -- Phase 3: HTTP Request & Response (Steps 19-22) --
+      S('pSeg3','#2c6b46','HTTP GET',0,1400,'\ud83d\udce8 <b>Step 19 \u2014 HTTP GET.</b> Browser sends GET / HTTP/1.1 + Host header. Encapsulated: DATA \u2192 TCP segment \u2192 IP packet \u2192 Ethernet frame \u2192 bits.');
+      S('pSeg3','#e2b95d','200 OK',true,1600,'\ud83d\udce6 <b>Step 20 \u2014 HTTP 200 OK.</b> Server sends HTML + headers. Large pages split into many TCP segments; SEQ numbers keep them ordered for reassembly.');
+      S('pSeg2','#e2b95d','200 OK',true,1200,'\u23e9 <b>Step 21</b> \u2014 Response packets return. Routers read IP dst=192.168.1.5. Ethernet MACs rewritten (src = router egress MAC) at every hop.');
+      S('pSeg1','#e2b95d','\u2713 Done!',true,1200,'\ud83c\udf89 <b>Step 22 \u2014 Page loaded!</b> Browser reassembles TCP segments in SEQ order. HTML parsed \u2192 page renders. CSS/JS/images: new HTTP requests, usually reusing the same TCP connection (Keep-Alive).');
 
       async function run(startIdx) {
         const mode = ($('#jMode', shell) || {}).value || 'run';
         const urlEl = $('#jUrl', shell);
         const url = (urlEl ? urlEl.value : 'www.example.com').trim() || 'www.example.com';
-        svg._dead = false;
         let stepCount = 0;
         for (let i = startIdx; i < steps.length && alive.v; i++) {
           const st = steps[i];
@@ -368,7 +368,7 @@
       const controls = el('div', 'lab-controls', `
         <label>IP <input type="text" id="sbIp" value="192.168.10.130" style="width:150px"></label>
         <label>Prefix /<input type="range" id="sbPfx" min="8" max="30" value="25" style="width:170px"><span class="val" id="sbPfxV">/25</span></label>
-        <label>Borrow <input type="range" id="sbBorrow" min="0" max="4" value="1" style="width:110px"><span class="val" id="sbBorrowV">1 bits</span></label>`);
+        <label>Borrow <input type="range" id="sbBorrow" min="0" max="6" value="1" style="width:110px"><span class="val" id="sbBorrowV">1 bits</span></label>`);
       shell.appendChild(controls);
       const out = el('div');
       shell.appendChild(out);
@@ -381,16 +381,23 @@
         return o;
       }
       function calc() {
-        const ip = parseIP($('#sbIp', shell).value) || [192, 168, 10, 130];
+        const ip = parseIP($('#sbIp', shell).value);
+        const invalidIp = !ip;
+        const ipV = ip || [192, 168, 10, 130];
         const pfx = +$('#sbPfx', shell).value;
-        const borrow = +$('#sbBorrow', shell).value;
+        // borrowing needs ≥ 2 host bits left after the new prefix (else no usable hosts)
+        const maxBorrow = Math.max(0, Math.min(6, 30 - pfx));
+        const borrow = Math.min(+$('#sbBorrow', shell).value, maxBorrow);
+        if (+$('#sbBorrow', shell).value > maxBorrow) $('#sbBorrow', shell).value = maxBorrow;
         $('#sbPfxV', shell).textContent = '/' + pfx;
         $('#sbBorrowV', shell).textContent = borrow + ' bit' + (borrow === 1 ? '' : 's');
+        const invalidNote = invalidIp ? `<div class="legend" style="margin:0 0 8px;color:var(--warn-tx)">⏳ Type a full IPv4 address above — showing an example until then.</div>` : '';
+        const ipHtml = invalidIp ? `<span style="opacity:.55">${ipV.join('.')}</span>` : ipV.join('.');
         const bits = [];
-        for (let i = 0; i < 32; i++) bits.push((ip[Math.floor(i / 8)] >> (7 - (i % 8))) & 1);
+        for (let i = 0; i < 32; i++) bits.push((ipV[Math.floor(i / 8)] >> (7 - (i % 8))) & 1);
         const bitHtml = bits.map((b, i) =>
           `<span class="bit ${i < pfx ? 'net' : 'host'} ${i % 8 === 0 && i > 0 ? 'sep' : ''}">${b}</span>`).join('');
-        const ipInt = ((ip[0] << 24) | (ip[1] << 16) | (ip[2] << 8) | ip[3]) >>> 0;
+        const ipInt = ((ipV[0] << 24) | (ipV[1] << 16) | (ipV[2] << 8) | ipV[3]) >>> 0;
         const mask = pfx === 0 ? 0 : (0xFFFFFFFF << (32 - pfx)) >>> 0;
         const net = (ipInt & mask) >>> 0;
         const bc = (net | (~mask >>> 0)) >>> 0;
@@ -422,6 +429,7 @@
           rows += `</table><p class="small">New prefix /${newPfx} → ${subnets} subnets × ${Math.pow(2, 32 - newPfx) - 2} usable hosts each.</p>`;
         }
         out.innerHTML = `
+          ${invalidNote}
           <div class="fig"><b style="font-size:13px">The 32 bits of ${fmt(ipInt)} /${pfx}</b>
             <div class="bitrow">${bitHtml}</div>
             <div class="legend"><span class="l-item"><span class="sw" style="background:var(--acc)"></span>network (${pfx} bits)</span>
@@ -731,8 +739,14 @@
       const logs = el('div', 'lab-log'); logs.id = 'tLog';
       shell.appendChild(logs);
       $('#tStep', shell).onclick = doStep;
-      $('#tPlay', shell).onclick = () => { if (timer) return; timer = setInterval(() => { if (idx >= steps.length) { clearInterval(timer); timer = null; return; } doStep(); }, 1100); };
-      $('#tReset', shell).onclick = () => { location.hash = '#/labs'; setTimeout(() => { location.hash = '#/labs#lab-tcp'; }, 0); };
+      $('#tPlay', shell).onclick = () => { if (timer) return; timer = setInterval(() => { if (!alive.v || idx >= steps.length) { clearInterval(timer); timer = null; return; } doStep(); }, 1100); };
+      $('#tReset', shell).onclick = () => {
+        clearInterval(timer); timer = null;
+        idx = 0; $('#tLog', shell).innerHTML = '';
+        stateC.textContent = 'CLOSED'; stateS.textContent = 'LISTEN';
+        $('#tState', shell).textContent = 'closed';
+        svg.querySelectorAll('g').forEach(g => g.remove());
+      };
     },
     teardown() { if (this._teardown) this._teardown(); },
   });
@@ -771,7 +785,7 @@
           if (Math.random() < 0.5) { ssthresh = Math.max(2, Math.floor(cwnd / 2)); cwnd = ssthresh; ev = 'dup-ACK'; mode = 'avoid'; }
           else { ssthresh = Math.max(2, Math.floor(cwnd / 2)); cwnd = 1; ev = 'timeout'; mode = 'slow'; }
         } else if (mode === 'slow') {
-          cwnd = Math.min(cwnd * 2, maxC); ev = '×2';
+          cwnd = Math.min(cwnd * 2, ssthresh, maxC); ev = '×2';
           if (cwnd >= ssthresh) { mode = 'avoid'; ev += ' → hit ssthresh, now +1/RTT'; }
         } else { cwnd = Math.min(cwnd + 1, maxC); ev = '+1'; }
         history.push({ r: round, c: cwnd, ev });
@@ -822,8 +836,8 @@
       }
       $('#cRun', shell).onclick = () => { if (timer) return; timer = setInterval(() => { if (!alive.v || round >= maxR) { clearInterval(timer); timer = null; return; } step(); }, 420); };
       $('#cPause', shell).onclick = () => { clearInterval(timer); timer = null; };
-      $('#cDup', shell).onclick = () => { ssthresh = Math.max(2, Math.floor(cwnd / 2)); cwnd = ssthresh; mode = 'avoid'; history.push({ r: ++round, c: cwnd, ev: 'dup-ACK' }); draw(); status.innerHTML = `<b>Fast recovery:</b> 3 dup-ACKs → ssthresh = cwnd/2 = ${ssthresh}, resume from there (no crash).`; };
-      $('#cTimeout', shell).onclick = () => { ssthresh = Math.max(2, Math.floor(cwnd / 2)); cwnd = 1; mode = 'slow'; history.push({ r: ++round, c: 1, ev: 'timeout' }); draw(); status.innerHTML = `<b>Timeout:</b> the retransmit timer fired — the network gave no hint at all, so TCP restarts from cwnd = 1, ssthresh = ${ssthresh}.`; };
+      $('#cDup', shell).onclick = () => { if (round >= maxR - 1) return; ssthresh = Math.max(2, Math.floor(cwnd / 2)); cwnd = ssthresh; mode = 'avoid'; history.push({ r: ++round, c: cwnd, ev: 'dup-ACK' }); draw(); status.innerHTML = `<b>Fast recovery:</b> 3 dup-ACKs → ssthresh = cwnd/2 = ${ssthresh}, resume from there (no crash).`; };
+      $('#cTimeout', shell).onclick = () => { if (round >= maxR - 1) return; ssthresh = Math.max(2, Math.floor(cwnd / 2)); cwnd = 1; mode = 'slow'; history.push({ r: ++round, c: 1, ev: 'timeout' }); draw(); status.innerHTML = `<b>Timeout:</b> the retransmit timer fired — the network gave no hint at all, so TCP restarts from cwnd = 1, ssthresh = ${ssthresh}.`; };
       $('#cReset', shell).onclick = reset;
       $('#cLoss', shell).addEventListener('input', () => { $('#cLossV', shell).textContent = $('#cLoss', shell).value + '%'; });
       reset();
@@ -881,17 +895,15 @@
         for (let i = 0; i < msgs.length; i++) {
           if (!alive.v) { busy = false; return; }
           const m = msgs[i];
-          $('#dState', shell).textContent = ['client: SELECTING…', 'client: SELECTING', 'client: REQUESTING', 'client: BOUND ✓'][i];
+          $('#dState', shell).textContent = ['client: INIT — discovering…', 'client: SELECTING', 'client: REQUESTING', 'client: BOUND ✓'][i];
           await travel(svg, mkPath(m.from), m.c, { label: m.label, dur: 1000 });
           logTo(logs, i + 1, m.log);
         }
         busy = false;
       }
       function mkPath(from) {
-        const y = 130 + msgs.filter((_, j) => j <= idxOf(from)).length * 34; // unused fallback
         return { getTotalLength: () => 100, getPointAtLength: l => ({ x: from === 'c' ? 135 + l * 4.95 : 630 - l * 4.95, y: 150 }) };
       }
-      function idxOf() { return 0; }
       async function runLease() {
         const marker = $('#dMarker', shell), ll = $('#dLeaseLog', shell);
         for (const [pct, txt] of [[0, 'Lease starts — 192.168.1.150 valid for 24 h.'], [50, '<b>T1 (12 h):</b> client <b>unicasts</b> REQUEST straight to its server — “renew me?” → server ACKs, clock restarts.'], [87.5, '<b>T2 (21 h):</b> still no answer → client <b>broadcasts</b> — any DHCP server may extend.'], [100, '<b>T3 (24 h):</b> lease expired — the IP is gone. Full DORA restarts (brief outage).']]) {
@@ -1011,24 +1023,28 @@
       });
       const logBox = el('div', 'lab-log'); logBox.style.maxHeight = '240px';
       shell.appendChild(logBox);
+      const alive = { v: true }; this._teardown = () => { alive.v = false; };
+      let busy = false;
       const setState = (k, txt, hot) => { $('#dnsState-' + k, shell).innerHTML = txt; cards[k].style.borderColor = hot ? '#16a34a' : 'var(--line)'; };
       const resetAll = () => stages.forEach(s => setState(s.k, 'idle'));
       const q = 'www.example.com → ?';
 
       async function resolve(cold) {
+        if (busy) return;
+        busy = true;
         let n = 0; resetAll();
         const put = (k, txt, hit) => setState(k, hit ? '⚡ cache HIT — ' + txt : 'miss', hit);
         const step = async (k, hit, txt, ms) => {
-          if (!window._dnsAlive) return;
+          if (!alive.v) return;
           cards[k].style.borderColor = 'var(--acc)';
           logTo(logBox, ++n, txt);
           put(k, txt, hit);
           await sleep(ms || 750);
-          if (!window._dnsAlive) return;
+          if (!alive.v) return;
           cards[k].style.borderColor = 'var(--line)';
         };
         await step('browser', !cold, '<b>Browser cache?</b> ' + (cold ? 'miss — first visit.' : '<b>HIT!</b> Same tab, same name — no network needed.'), 700);
-        if (!cold) return done(true);
+        if (!cold) { busy = false; return done(true); }
         await step('os', false, '<b>OS stub resolver + /etc/hosts:</b> miss → forward to the configured recursive resolver.');
         await step('resolver', false, '<b>Recursive resolver</b> (your ISP or 8.8.8.8): cache empty → walk the hierarchy. <b>UDP 53</b>.');
         await step('root', false, '<b>Root server</b> (a–m.root-servers.net): “ask the <b>.com</b> TLD servers — here are their addresses.” (Roots don’t know example.com; they know who does.)');
@@ -1036,6 +1052,7 @@
         await step('auth', false, '<b>Authoritative server</b> holds the zone: <b>A 93.184.216.34, TTL ' + $('#dnsTtl', shell).value + '</b>.');
         logTo(logBox, ++n, '⬅️ The answer travels back: auth → resolver (caches it) → OS (caches it) → browser (caches it). Done!');
         done(false);
+        busy = false;
       }
       function done(hit) {
         logTo(logBox, '✓', hit ? '<b>Answered from cache — 0 hierarchy queries.</b> That’s the internet’s speed secret: every hop caches, and TTL decides how long each answer lives.' :
@@ -1045,9 +1062,8 @@
       $('#dnsWarm', shell).onclick = () => resolve(false);
       $('#dnsExpired', shell).onclick = () => resolve(true);
       $('#dnsTtl', shell).addEventListener('input', e => { $('#dnsTtlV', shell).textContent = e.target.value + ' s'; });
-      window._dnsAlive = true;
     },
-    teardown() { window._dnsAlive = false; },
+    teardown() { if (this._teardown) this._teardown(); },
   });
 
   /* ================================================================
@@ -1082,7 +1098,7 @@
         ctx.strokeStyle = '#c9c3b6'; ctx.lineWidth = 3;
         ctx.beginPath(); ctx.moveTo(110, 125); ctx.lineTo(770, 125); ctx.stroke(); ctx.lineWidth = 1;
         // propagation visual: wave position
-        const frac = Math.min(1, dprop / 12);
+        const frac = Math.min(1, dprop / (3000e3 / 2e8 * 1e3));  // scale vs max slider distance
         const wx = 110 + frac * 660;
         ctx.strokeStyle = '#e2b95d'; ctx.lineWidth = 4;
         ctx.beginPath(); ctx.moveTo(wx, 95); ctx.lineTo(wx, 155); ctx.stroke(); ctx.lineWidth = 1;
@@ -1120,7 +1136,7 @@
   ================================================================ */
   LABS.push({
     id: 'lab-gossip', icon: '🌪️', title: 'Count-to-Infinity — routing gossip',
-    desc: 'Three routers share one destination network. Kill the link and watch distance-vector gossip: without split horizon the cost climbs all the way to 16 (RIP\'s "infinity") — with split horizon, the network heals in one round.',
+    desc: 'Three routers share one destination network. Kill the link and watch distance-vector gossip: without split horizon the cost climbs all the way to 16 (RIP\'s "infinity") — with split horizon the poison is contained and the network heals in two rounds.',
     mount(shell) {
       const alive = { v: true }; this._teardown = () => { alive.v = false; };
       controlsHTML(shell, `

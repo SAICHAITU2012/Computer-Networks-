@@ -103,7 +103,9 @@
         rafId = requestAnimationFrame(animBz);
       }
       resizeBz(); animBz();
-      window.addEventListener('resize', resizeBz);
+      const onBzResize = () => resizeBz();
+      window.addEventListener('resize', onBzResize);
+      window.addEventListener('route:away', () => window.removeEventListener('resize', onBzResize), { once: true });
 
       function newQ() {
         const toBin = Math.random() < .5;
@@ -246,7 +248,9 @@
         canvas.width = W = r; canvas.height = H = Math.round(r * 0.6);
         positionNodeButtons();
       }
-      resize(); window.addEventListener('resize', resize);
+      const onPrResize = () => resize();
+      resize(); window.addEventListener('resize', onPrResize);
+      window.addEventListener('route:away', () => window.removeEventListener('resize', onPrResize), { once: true });
 
       function nx(k) { return nodes[k].x * W; }
       function ny(k) { return nodes[k].y * H; }
@@ -442,7 +446,7 @@
            `Points: <b>${points}</b>`,'The shortest path IS the routing table. Study it!'], xp);
       }
       $('#prStart',shell).onclick=()=>{
-        if(over||!packet) { delivered=0;lost=0;points=0;over=false;busy=false; updateHud(); spawn(); if(G())G().SFX.click(); }
+        if(!packet) { delivered=0;lost=0;points=0;over=false;busy=false; trails=[]; flashes=[]; updateHud(); spawn(); if(G())G().SFX.click(); }
       };
     },
   });

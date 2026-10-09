@@ -6,6 +6,7 @@
   'use strict';
 
   let _raf = null, _canvas = null, _mouseX = 0.5, _mouseY = 0.5;
+  let _resizeFn = null;
 
   document.addEventListener('mousemove', e => {
     _mouseX = e.clientX / window.innerWidth;
@@ -14,6 +15,7 @@
 
   function stop() {
     if (_raf) { cancelAnimationFrame(_raf); _raf = null; }
+    if (_resizeFn) { window.removeEventListener('resize', _resizeFn); _resizeFn = null; }
     if (_canvas) { _canvas.remove(); _canvas = null; }
   }
 
@@ -28,6 +30,13 @@
   }
 
   function loop(fn) { _raf = requestAnimationFrame(fn); }
+
+  // every start*() calls trackResize(resize) instead of addEventListener directly
+  function trackResize(fn) {
+    if (_resizeFn) window.removeEventListener('resize', _resizeFn);
+    _resizeFn = fn;
+    window.addEventListener('resize', fn);
+  }
 
   /* ──────────────────────────────────────────────────────────
      1. HOME — Neural Network  (vivid indigo/violet)
@@ -44,7 +53,7 @@
         pulse: Math.random() * Math.PI * 2, s: .018 + Math.random() * .02
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(6,9,20,.18)'; ctx.fillRect(0, 0, W, H);
       t += .01;
@@ -106,7 +115,7 @@
         chars: []
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(2,8,15,.12)'; ctx.fillRect(0, 0, W, H);
       drops.forEach((d, i) => {
@@ -137,7 +146,7 @@
     const c = makeCanvas(); const ctx = c.getContext('2d');
     let W, H, t = 0;
     function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(4,8,24,.15)'; ctx.fillRect(0, 0, W, H);
       t += .016;
@@ -194,7 +203,7 @@
         tw: Math.random() * Math.PI * 2, s: .015 + Math.random() * .04
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(6,6,18,.12)'; ctx.fillRect(0, 0, W, H);
       t += .01; stimer++;
@@ -254,7 +263,7 @@
         tw: Math.random() * Math.PI * 2, ts: .02 + Math.random() * .04
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(8,4,18,.14)'; ctx.fillRect(0, 0, W, H);
       t += .008;
@@ -289,7 +298,7 @@
     const c = makeCanvas(); const ctx = c.getContext('2d');
     let W, H, t = 0;
     function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function hexPoly(cx, cy, r) {
       ctx.beginPath();
       for (let i = 0; i < 6; i++) {
@@ -348,7 +357,7 @@
     function resize() {
       W = c.width = innerWidth; H = c.height = innerHeight; buildTraces();
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(6,10,4,.16)'; ctx.fillRect(0, 0, W, H);
       t += .006;
@@ -404,7 +413,7 @@
     const c = makeCanvas(); const ctx = c.getContext('2d');
     let W, H, t = 0;
     function resize() { W = c.width = innerWidth; H = c.height = innerHeight; }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(4,12,10,.15)'; ctx.fillRect(0, 0, W, H);
       t += .007;
@@ -452,7 +461,7 @@
         pulse: Math.random() * Math.PI * 2, ps: .008 + Math.random() * .01
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(5,7,18,.22)'; ctx.fillRect(0, 0, W, H);
       t += .008;
@@ -487,7 +496,7 @@
         hue: hue + (Math.random() - .5) * 60, alpha: .4 + Math.random() * .5
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(4,6,18,.18)'; ctx.fillRect(0, 0, W, H);
       t += .008;
@@ -523,7 +532,7 @@
         tw: Math.random() * Math.PI * 2, ts: .01 + Math.random() * .02
       }));
     }
-    resize(); window.addEventListener('resize', resize);
+    resize(); trackResize(resize);
     function draw() {
       ctx.fillStyle = 'rgba(4,6,20,.18)'; ctx.fillRect(0, 0, W, H);
       t += .008;
