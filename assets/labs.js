@@ -533,7 +533,7 @@
 
       const desc = $('#rExplain', side);
       let algo = [], dist = {}, prev = {}, visited = {}, order = {}, stepIdx = 0, src = 'Delhi', dst = 'Bengaluru';
-      let initial = null;
+      let initial = null, orderKind = 'visit';
       const fmt = d => d === Infinity ? '∞' : d;
       const getPath = t => {
         const p = []; let cur = t;
@@ -544,7 +544,7 @@
       // The algorithm is fully computed here, and every step captures a snapshot
       // of dist/prev/visited/order at that moment — stepping replays the snapshots.
       function buildPlan() {
-        algo = []; dist = {}; prev = {}; visited = {}; order = {};
+        algo = []; dist = {}; prev = {}; visited = {}; order = {}; orderKind = 'visit';
         nodes.forEach(n => dist[n.id] = Infinity);
         dist[src] = 0;
         const push = d => algo.push({ dist: { ...dist }, prev: { ...prev }, visited: { ...visited }, order: { ...order }, desc: d });
@@ -612,22 +612,24 @@
               : `${dst} unreachable from ${src}.`);
           }
         } else { // bellman-ford
-          push(`Start: dist[${src}] = 0, everything else ∞. Bellman-Ford relaxes <b>every edge</b>, pass after pass — this is what a distance-vector protocol does between its neighbours.`);
+          orderKind = 'pass';
+          push(`Start: dist[${src}] = 0, everything else ∞. Bellman-Ford relaxes <b>every edge</b>, pass after pass — this is what a distance-vector protocol does between its neighbours. Nothing is finalised greedily: any router's distance keeps improving while a later pass finds a cheaper route, so <b>no fixed visit order</b> exists.`);
           const orderN = nodes.map(n => n.id);
+          const lastPass = { [src]: 0 };
           for (let pass = 1; pass <= nodes.length - 1; pass++) {
             let improved = false;
             orderN.forEach(u => {
               nbrs(u).forEach(([v, w]) => {
                 const old = dist[v];
-                if (isFinite(dist[u]) && dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; improved = true; }
+                if (isFinite(dist[u]) && dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u; visited[v] = 'frontier'; improved = true; lastPass[v] = pass; }
                 push(`Pass ${pass}: relax ${u} → ${v}: ${fmt(dist[u])} + ${w} = ${isFinite(dist[u]) ? fmt(dist[u] + w) : '∞'} vs current ${fmt(old)}` +
                   (dist[v] < old ? ` — <b>improve → ${fmt(dist[v])}</b>.` : ' — no improvement.'));
               });
             });
             if (!improved) break;
           }
-          nodes.forEach(n => { if (isFinite(dist[n.id])) { visited[n.id] = 'final'; order[n.id] = Object.keys(order).length + 1; } });
-          push(`After the passes the tables converge and every reachable router is finalised. One more pass with no change proves there is no negative cycle — <b>count-to-infinity</b> is what happens in DV when they don't.`);
+          nodes.forEach(n => { if (isFinite(dist[n.id])) { visited[n.id] = 'final'; order[n.id] = lastPass[n.id]; } });
+          push(`Converged: with all <b>V−1 passes</b> done, nothing changes any more — every reachable router's distance is now final <i>by convergence</i>, not by greedy choice (there is no visit order to get right or wrong). The <b>Pass</b> column shows the pass in which each distance last improved. One further no-change pass would also rule out a negative-weight cycle reachable from ${src}; this graph has none. <b>Count-to-infinity</b> is the classic distance-vector failure: when a link fails or its cost rises, stale route adverts keep circulating between neighbours, hop counts climb toward ∞ before the tables re-settle.`);
         }
       }
       function render() {
@@ -635,7 +637,7 @@
           const ne = nodeEls[n.id];
           ne.c.setAttribute('fill', n.id === src ? '#a2ce9d' : n.id === dst ? '#ffd98a' : visited[n.id] === 'final' ? '#4f46e5' : visited[n.id] === 'frontier' ? '#c5d5ee' : '#fffdf8');
           ne.c.setAttribute('stroke', visited[n.id] ? '#4f46e5' : '#c9c3b6');
-          ne.badge.textContent = dist[n.id] === Infinity ? '' : (dist[n.id] + (order[n.id] ? ' #' + order[n.id] : ''));
+          ne.badge.textContent = dist[n.id] === Infinity ? '' : (dist[n.id] + (order[n.id] ? (orderKind === 'pass' ? ' P' + order[n.id] : ' #' + order[n.id]) : ''));
         });
         edges.forEach(([a, b]) => {
           const E = edgeEls[a + '|' + b];
@@ -643,7 +645,7 @@
           E.line.setAttribute('stroke', onTree ? '#4f46e5' : '#d9d5f0');
           E.line.setAttribute('stroke-width', onTree ? 4.5 : 2.5);
         });
-        $('#rTable', side).innerHTML = `<table class="rtable"><tr><th>Router</th><th>Dist</th><th>Via</th><th>#</th></tr>` +
+        $('#rTable', side).innerHTML = `<table class="rtable"><tr><th>Router</th><th>Dist</th><th>Via</th><th>${orderKind === 'pass' ? 'Pass' : '#'}</th></tr>` +
           nodes.map(n => `<tr><td>${n.id}</td><td class="mono">${dist[n.id] === Infinity ? '∞' : dist[n.id]}</td><td>${prev[n.id] || '—'}</td><td>${order[n.id] || '—'}</td></tr>`).join('') + '</table>';
       }
       // selects
